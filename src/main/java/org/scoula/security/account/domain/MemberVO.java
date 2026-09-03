@@ -13,9 +13,13 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class MemberVO {
+    private Long id;
     private String username;
     private String password;
     private String email;
+    private String nickname;
+    private String provider;
+    private String providerId;
     private Date regDate;
     private Date updateDate;
     private List<AuthVO> authList; //username, auth(role)

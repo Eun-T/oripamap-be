@@ -3,6 +3,7 @@ package org.scoula.security.util;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
@@ -23,9 +24,9 @@ public class JwtProcessor {
 
 
     //JWT생성
-    public String generateToken(String subject){
+    public String generateToken(Long userId){
         return Jwts.builder()
-                .setSubject(subject)
+                .setSubject(String.valueOf(userId))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(new Date().getTime() + TOKEN_VALID_MILISECOND))
                 .signWith(key)
@@ -33,13 +34,18 @@ public class JwtProcessor {
     }
 
     //username(id역할하는 클레임) --> 그대로 사용, db검색해도 됨.
-    public String getUsername(String token){
-        return Jwts.parserBuilder()
+    public Long getUserId(String token){
+        String subject = Jwts.parserBuilder()
                 .setSigningKey(key) //검증용 키 설정
                 .build()
                 .parseClaimsJws(token) //유효성 검증
                 .getBody()
                 .getSubject(); //id에 해당하는 클레임 추출
+        try {
+            return Long.valueOf(subject);
+        } catch (NumberFormatException e) {
+            throw new MalformedJwtException("JWT subject가 사용자 ID 형식이 아닙니다.");
+        }
     }
 
     //JWT유효성 검증

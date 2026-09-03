@@ -29,7 +29,6 @@ CREATE TABLE users (
 
                        provider_id VARCHAR(255),
 
-                       profile_image_url VARCHAR(500),
 
                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 

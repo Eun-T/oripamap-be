@@ -1,14 +1,13 @@
 package org.scoula.member.mapper;
 
 import org.scoula.member.dto.ChangePasswordDTO;
-import org.scoula.security.account.domain.AuthVO;
+import org.apache.ibatis.annotations.Param;
 import org.scoula.security.account.domain.MemberVO;
 
 public interface MemberMapper {
-    MemberVO get(String username);
-    MemberVO findByUsername(String username); // id 중복 체크시 사용
+    MemberVO get(@Param("email") String email);
+    MemberVO findByUsername(@Param("email") String email); // 이메일 중복 체크
     int insert(MemberVO member);  // 회원 정보 추가
-    int insertAuth(AuthVO auth);
     int update(MemberVO member);
     int updatePassword(ChangePasswordDTO changePasswordDTO);
 

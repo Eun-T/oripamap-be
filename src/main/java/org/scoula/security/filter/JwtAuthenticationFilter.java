@@ -3,11 +3,11 @@ package org.scoula.security.filter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.security.util.JwtProcessor;
+import org.scoula.security.account.service.CustomUserDetailsService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -27,11 +27,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtProcessor jwtProcessor;
-    private final UserDetailsService userDetailsService;
+    private final CustomUserDetailsService userDetailsService;
 
     public Authentication  getAuthentication(String token) {
-        String username = jwtProcessor.getUsername(token); //유효성검증 --> 로그인한 username
-        UserDetails princiapl = userDetailsService.loadUserByUsername(username);
+        Long userId = jwtProcessor.getUserId(token);
+        UserDetails princiapl = userDetailsService.loadUserById(userId);
         return new UsernamePasswordAuthenticationToken(princiapl, null, princiapl.getAuthorities());
     }
 

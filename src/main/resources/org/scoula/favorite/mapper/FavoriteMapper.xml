@@ -5,7 +5,7 @@
 <mapper namespace="org.scoula.favorite.mapper.FavoriteMapper">
 
     <insert id="insertFavorite">
-        INSERT INTO favorites (
+        INSERT IGNORE INTO favorites (
             user_id,
             place_id
         )
@@ -26,6 +26,22 @@
         FROM favorites
         WHERE user_id = #{userId}
           AND place_id = #{placeId}
+    </select>
+
+    <select id="findPlacesByUserId" resultType="org.scoula.place.vo.PlaceVO">
+        SELECT p.id, p.type, p.name, p.branch_name AS branchName,
+               p.address, p.location_detail AS locationDetail,
+               p.latitude, p.longitude,
+               p.business_hours AS businessHours,
+               p.holiday_info AS holidayInfo,
+               p.phone, p.description,
+               (SELECT pi.image_url FROM place_images pi
+                WHERE pi.place_id = p.id
+                ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS imageUrl
+        FROM favorites f
+        JOIN places p ON p.id = f.place_id
+        WHERE f.user_id = #{userId}
+        ORDER BY f.created_at DESC
     </select>
 
 </mapper>

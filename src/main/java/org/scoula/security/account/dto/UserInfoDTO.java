@@ -11,15 +11,19 @@ import java.util.List;
 @AllArgsConstructor
 @Data
 public class UserInfoDTO {
+    Long id;
     String username;
     String email;
+    String nickname;
     List<String> roles;
 
     public static UserInfoDTO of(MemberVO member){
 
         return new UserInfoDTO(
+                member.getId(),
                 member.getUsername(),
                 member.getEmail(),
+                member.getNickname(),
                 member.getAuthList().stream().map(a -> a.getAuth()).toList() // {"role_admin", "role_member"}
                 );
     }

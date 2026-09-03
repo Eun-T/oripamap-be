@@ -4,25 +4,43 @@
 <mapper namespace="org.scoula.security.account.mapper.UserDetailsMapper">
 
     <resultMap id="authMap" type="AuthVO">
-        <result property="username" column="username" />
+        <result property="username" column="email" />
         <result property="auth" column="auth" />
     </resultMap>
 
     <resultMap id="memberMap"  type="org.scoula.security.account.domain.MemberVO">
-        <id property="username"  column="username" />
-        <result property="username"  column="username" />
+        <id property="id" column="id" />
+        <result property="username" column="email" />
         <result property="password" column="password" />
         <result property="email" column="email" />
-        <result property="regDate" column="reg_date" />
-        <result property="updateDate" column="update_date" />
+        <result property="nickname" column="nickname" />
+        <result property="provider" column="provider" />
+        <result property="providerId" column="provider_id" />
+        <result property="regDate" column="created_at" />
+        <result property="updateDate" column="updated_at" />
         <collection property="authList" resultMap="authMap" />
     </resultMap>
 
     <select id="get" resultMap="memberMap">
-        select m.username, password, email, reg_date, update_date, auth
-        from tbl_member m left
-            outer join tbl_member_auth a
-            on m.username = a.username
-        where m.username = #{username}
+        SELECT
+            id,
+            email,
+            password,
+            nickname,
+            provider,
+            provider_id,
+            created_at,
+            updated_at,
+            'ROLE_MEMBER' AS auth
+        FROM users
+        WHERE email = #{email}
+          AND provider = 'LOCAL'
+    </select>
+
+    <select id="getById" resultMap="memberMap">
+        SELECT id, email, password, nickname, provider, provider_id,
+               created_at, updated_at, 'ROLE_MEMBER' AS auth
+        FROM users
+        WHERE id = #{id}
     </select>
 </mapper>

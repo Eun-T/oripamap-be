@@ -4,6 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.scoula.comment.dto.CommentRequest;
 import org.scoula.comment.dto.CommentResponse;
 import org.scoula.comment.service.CommentService;
+import org.scoula.security.account.domain.CustomUser;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,21 +29,31 @@ public class CommentController {
 
     // 댓글 작성
     @PostMapping("/place/{placeId}")
-    public void addComment(
+    public ResponseEntity<Void> addComment(
             @PathVariable Long placeId,
-            @RequestBody CommentRequest request
+            @RequestBody CommentRequest request,
+            @AuthenticationPrincipal CustomUser user
     ) {
         commentService.addComment(
                 placeId,
+                user.getMember().getId(),
                 request.getContent()
         );
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     // 댓글 삭제
     @DeleteMapping("/{commentId}")
-    public void deleteComment(
-            @PathVariable Long commentId
+    public ResponseEntity<Void> deleteComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal CustomUser user
     ) {
-        commentService.deleteComment(commentId);
+        boolean deleted = commentService.deleteComment(
+                commentId,
+                user.getMember().getId()
+        );
+        return deleted
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 }

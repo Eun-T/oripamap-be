@@ -18,10 +18,18 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserDetailsMapper mapper;
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        MemberVO vo = mapper.get(username);
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        MemberVO vo = mapper.get(email);
         if(vo == null) {
-            throw new UsernameNotFoundException(username + "은 없는 id입니다.");
+            throw new UsernameNotFoundException(email + "은 등록되지 않은 이메일입니다.");
+        }
+        return new CustomUser(vo);
+    }
+
+    public UserDetails loadUserById(Long id) throws UsernameNotFoundException {
+        MemberVO vo = mapper.getById(id);
+        if (vo == null) {
+            throw new UsernameNotFoundException("사용자를 찾을 수 없습니다: " + id);
         }
         return new CustomUser(vo);
     }

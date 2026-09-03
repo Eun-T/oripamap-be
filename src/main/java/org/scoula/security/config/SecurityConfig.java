@@ -88,7 +88,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
     //시큐리티 적용하고 싶지 않은 요청 주소 등록.
     @Override
     public void configure(WebSecurity web) throws Exception {
-        web.ignoring().antMatchers("/assets/**", "/*", "/api/member/**", "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/v2/api-docs");
+        web.ignoring().antMatchers("/assets/**", "/*", "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/v2/api-docs");
     }
 
     @Override
@@ -122,11 +122,15 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         http
                 .authorizeRequests() // 경로별 접근 권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
-                .antMatchers(HttpMethod.POST,"/api/member").authenticated()
+                .antMatchers(HttpMethod.POST,"/api/member").permitAll()
+                .antMatchers(HttpMethod.GET, "/api/users/me").authenticated()
                 .antMatchers(HttpMethod.PUT,"/api/member", "/api/member/*/changepassword").authenticated()
                 .antMatchers(HttpMethod.POST, "/api/board/**").authenticated()
                 .antMatchers(HttpMethod.PUT, "/api/board/**").authenticated()
                 .antMatchers(HttpMethod.DELETE, "/api/board/**").authenticated()
+                .antMatchers(HttpMethod.POST, "/api/comments/**").authenticated()
+                .antMatchers(HttpMethod.DELETE, "/api/comments/**").authenticated()
+                .antMatchers("/api/favorites/**").authenticated()
                 .anyRequest().permitAll(); // 일단 모든 접근 허용
 //                .antMatchers("/api/security/all").permitAll() // 모두 허용
 //                .antMatchers("/api/security/member").access("hasRole('ROLE_MEMBER')") // ROLE_MEMBER 이상 접근 허용

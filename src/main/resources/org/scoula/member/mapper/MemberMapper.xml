@@ -4,55 +4,59 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.scoula.member.mapper.MemberMapper">
     <resultMap id="authMap" type="AuthVO">
-        <result property="username" column="username" />
+        <result property="username" column="email" />
         <result property="auth"
                 column="auth" />
     </resultMap>
     <resultMap id="memberMap"  type="MemberVO">
-        <id property="username"  column="username" />
-        <result property="username" column="username" />
+        <id property="id" column="id" />
+        <result property="username" column="email" />
         <result property="password" column="password" />
         <result property="email" column="email" />
-        <result property="regDate" column="reg_date" />
-        <result property="updateDate" column="update_date" />
+        <result property="nickname" column="nickname" />
+        <result property="provider" column="provider" />
+        <result property="providerId" column="provider_id" />
+        <result property="regDate" column="created_at" />
+        <result property="updateDate" column="updated_at" />
         <collection property="authList" resultMap="authMap" />
     </resultMap>
 
     <select id="get" resultMap="memberMap">
-        SELECT m.username, password, email, reg_date, update_date, auth
-        FROM  tbl_member m
-                  LEFT OUTER JOIN  tbl_member_auth a
-                                   ON m.username = a.username
-        where m.username = #{username}
+        SELECT id, email, password, nickname, provider, provider_id,
+               created_at, updated_at, 'ROLE_MEMBER' AS auth
+        FROM users
+        WHERE email = #{email}
+          AND provider = 'LOCAL'
     </select>
 
     <select id="findByUsername" resultType="org.scoula.security.account.domain.MemberVO">
-        SELECT * FROM tbl_member WHERE username = #{username}
+        SELECT id, email, password, nickname, provider, provider_id,
+               created_at, updated_at
+        FROM users
+        WHERE email = #{email}
     </select>
 
     <insert id="insert">
-        INSERT INTO tbl_member
-        VALUES(#{username}, #{password}, #{email}, now(), now() )
-    </insert>
-    <insert id="insertAuth">
-        INSERT INTO tbl_member_auth(username, auth)
-        VALUES(#{username}, #{auth})
+        INSERT INTO users (email, password, nickname, provider)
+        VALUES (#{email}, #{password}, #{nickname}, 'LOCAL')
     </insert>
 
     <update id="update">
-        UPDATE tbl_member
+        UPDATE users
         SET
             email = #{email},
-            update_date = now()
-        WHERE username =#{username}
+            updated_at = now()
+        WHERE email = #{username}
+          AND provider = 'LOCAL'
     </update>
 
     <update id="updatePassword">
-        UPDATE tbl_member
+        UPDATE users
         SET
             password = #{newPassword},
-            update_date = now()
-        WHERE username =#{username}
+            updated_at = now()
+        WHERE email = #{username}
+          AND provider = 'LOCAL'
     </update>
 
 </mapper>

@@ -14,8 +14,6 @@ public class CommentService {
 
     private final CommentMapper commentMapper;
 
-    private static final Long TEST_USER_ID = 1L;
-
     public List<CommentResponse> getComments(Long placeId) {
 
         return commentMapper.findByPlaceId(placeId)
@@ -24,21 +22,21 @@ public class CommentService {
                 .toList();
     }
 
-    public void addComment(Long placeId, String content) {
+    public void addComment(Long placeId, Long userId, String content) {
 
         commentMapper.insertComment(
                 placeId,
-                TEST_USER_ID,
+                userId,
                 content
         );
     }
 
-    public void deleteComment(Long commentId) {
+    public boolean deleteComment(Long commentId, Long userId) {
 
-        commentMapper.deleteComment(
+        return commentMapper.deleteComment(
                 commentId,
-                TEST_USER_ID
-        );
+                userId
+        ) > 0;
     }
 
     private CommentResponse toResponse(CommentVO vo) {
