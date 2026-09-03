@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.editrequest.mapper.EditRequestMapper">
+
+    <insert id="insertEditRequest">
+        INSERT INTO edit_requests (
+        place_id,
+        user_id,
+        request_types,
+        memo
+        )
+        VALUES (
+        #{placeId},
+        #{userId},
+        #{requestTypes},
+        #{memo}
+        )
+    </insert>
+
+</mapper>

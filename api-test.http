@@ -1,0 +1,17 @@
+### 좋아요 추가
+POST http://localhost:8080/api/favorites/1
+
+
+### 좋아요 확인
+GET http://localhost:8080/api/favorites/1
+
+
+### 좋아요 삭제
+DELETE http://localhost:8080/api/favorites/1
+
+### 댓글 확인
+GET http://localhost:8080/api/comments/place/1
+
+### 삭제 확인
+DELETE http://localhost:8080/api/comments/1
+
