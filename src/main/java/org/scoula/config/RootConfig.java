@@ -34,7 +34,10 @@ import javax.sql.DataSource;
         "org.scoula.comment.service",
         "org.scoula.editrequest.service",
 })
-@PropertySource({"classpath:/application.properties"})
+@PropertySource(
+        value = {"classpath:/application.properties", "classpath:/application-secret.properties"},
+        ignoreResourceNotFound = true
+)
 //@MapperScan(basePackages  = {""})
 @EnableTransactionManagement
 public class RootConfig {

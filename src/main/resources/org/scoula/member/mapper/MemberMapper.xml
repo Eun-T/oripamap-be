@@ -59,5 +59,18 @@
           AND provider = 'LOCAL'
     </update>
 
+    <select id="findByProvider" resultMap="memberMap">
+        SELECT id, email, password, nickname, provider, provider_id,
+               created_at, updated_at, 'ROLE_MEMBER' AS auth
+        FROM users
+        WHERE provider = #{provider}
+          AND provider_id = #{providerId}
+    </select>
+
+    <insert id="insertSocial" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (email, password, nickname, provider, provider_id)
+        VALUES (#{email}, #{password}, #{nickname}, #{provider}, #{providerId})
+    </insert>
+
 </mapper>
 

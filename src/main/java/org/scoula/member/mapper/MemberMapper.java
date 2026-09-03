@@ -10,5 +10,8 @@ public interface MemberMapper {
     int insert(MemberVO member);  // 회원 정보 추가
     int update(MemberVO member);
     int updatePassword(ChangePasswordDTO changePasswordDTO);
+    MemberVO findByProvider(@Param("provider") String provider,
+                            @Param("providerId") String providerId);
+    int insertSocial(MemberVO member);
 
 }
