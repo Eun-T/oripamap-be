@@ -25,6 +25,10 @@ tasks.withType(JavaCompile) {
 }
 
 dependencies {
+    // AWS SDK v2 - S3
+    implementation platform('software.amazon.awssdk:bom:2.54.7')
+    implementation 'software.amazon.awssdk:s3'
+
     // 스프링
     implementation ("org.springframework:spring-context:${springVersion}")
             { exclude group: 'commons-logging', module: 'commons-logging' }

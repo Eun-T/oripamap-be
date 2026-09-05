@@ -2,7 +2,6 @@ package org.scoula.security.config;
 
 import org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer;
 import org.springframework.web.filter.CharacterEncodingFilter;
-import org.springframework.web.multipart.support.MultipartFilter;
 
 import javax.servlet.ServletContext;
 
@@ -17,7 +16,8 @@ public class SecurityInitializer extends AbstractSecurityWebApplicationInitializ
     }
     @Override
     protected void beforeSpringSecurityFilterChain(ServletContext servletContext) {
-        insertFilters(servletContext, encodingFilter(), new MultipartFilter());
+        // 파일 파싱은 인증 후 DispatcherServlet의 multipartResolver에서 처리한다.
+        insertFilters(servletContext, encodingFilter());
     }
 
 }

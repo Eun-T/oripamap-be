@@ -10,6 +10,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import javax.sql.DataSource;
 
 @Configuration
+@Import(S3Config.class)
 @MapperScan(basePackages  = {
         "org.scoula.member.mapper",
         "org.scoula.place.mapper",
@@ -26,6 +28,7 @@ import javax.sql.DataSource;
         "org.scoula.editrequest.mapper",
 })
 @ComponentScan(basePackages = {
+        "org.scoula.common.service",
         "org.scoula.member.service",
         "org.scoula.place.service",
         "org.scoula.favorite.service",

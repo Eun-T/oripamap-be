@@ -131,6 +131,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.PUT, "/api/comments/**").authenticated()
                 .antMatchers(HttpMethod.DELETE, "/api/comments/**").authenticated()
                 .antMatchers(HttpMethod.POST, "/api/edit-requests").authenticated()
+                .antMatchers(HttpMethod.POST, "/api/images").authenticated()
                 .antMatchers("/api/favorites/**").authenticated()
                 .anyRequest().permitAll(); // 일단 모든 접근 허용
 //                .antMatchers("/api/security/all").permitAll() // 모두 허용

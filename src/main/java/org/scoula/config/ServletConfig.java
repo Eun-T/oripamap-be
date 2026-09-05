@@ -10,6 +10,7 @@ import org.springframework.web.servlet.view.JstlView;
 
 @EnableWebMvc
 @ComponentScan(basePackages = {
+        "org.scoula.common.controller",
         "org.scoula.controller",
         "org.scoula.exception",
         "org.scoula.security.controller",
