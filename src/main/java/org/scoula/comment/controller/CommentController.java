@@ -6,9 +6,13 @@ import org.scoula.comment.dto.CommentResponse;
 import org.scoula.comment.service.CommentService;
 import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -27,8 +31,13 @@ public class CommentController {
         return commentService.getComments(placeId);
     }
 
-    // 댓글 작성
-    @PostMapping("/place/{placeId}")
+    @GetMapping("/place/{placeId}/photos")
+    public List<CommentResponse> getPhotos(@PathVariable Long placeId) {
+        return commentService.getPhotos(placeId);
+    }
+
+    // 기존 JSON 댓글 작성
+    @PostMapping(value = "/place/{placeId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> addComment(
             @PathVariable Long placeId,
             @RequestBody CommentRequest request,
@@ -42,8 +51,18 @@ public class CommentController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    // 댓글 삭제
-    @PostMapping("/{commentId}/replies")
+    @PostMapping(value = "/place/{placeId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> addCommentWithImage(
+            @PathVariable Long placeId,
+            @RequestParam(value = "content", required = false) String content,
+            MultipartHttpServletRequest request,
+            @AuthenticationPrincipal CustomUser user) {
+        commentService.addComment(placeId, user.getMember().getId(), content, files(request));
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    // 답글 작성
+    @PostMapping(value = "/{commentId}/replies", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> addReply(
             @PathVariable Long commentId,
             @RequestBody CommentRequest request,
@@ -79,6 +98,24 @@ public class CommentController {
         return updated
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+
+    @PostMapping(value = "/{commentId}/replies", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> addReplyMultipart(
+            @PathVariable Long commentId,
+            @RequestParam(value = "content", required = false) String content,
+            MultipartHttpServletRequest request,
+            @AuthenticationPrincipal CustomUser user) {
+        boolean created = commentService.addReply(commentId, user.getMember().getId(),
+                content == null ? null : content.trim(), files(request));
+        return created ? ResponseEntity.status(HttpStatus.CREATED).build() : ResponseEntity.badRequest().build();
+    }
+
+    private List<MultipartFile> files(MultipartHttpServletRequest request) {
+        if (request.getMultiFileMap().keySet().stream().anyMatch(name -> !name.equals("file"))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지는 file 필드로 전송해 주세요.");
+        }
+        return request.getFiles("file");
     }
 
     @DeleteMapping("/{commentId}")

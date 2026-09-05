@@ -15,6 +15,7 @@ public class CommentResponse {
     private Long parentCommentId;
     private String nickname;
     private String content;
+    private String imageUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<CommentResponse> replies;

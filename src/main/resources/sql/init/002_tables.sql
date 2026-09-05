@@ -108,6 +108,8 @@ CREATE TABLE comments (
 
                           content TEXT NOT NULL,
 
+                          image_key VARCHAR(500) NULL,
+
                           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
                           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

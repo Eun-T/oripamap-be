@@ -10,10 +10,15 @@ public interface CommentMapper {
 
     List<CommentVO> findByPlaceId(Long placeId);
 
+    List<CommentVO> findPhotosByPlaceId(@Param("placeId") Long placeId);
+
+    CommentVO findOwnedByIdForUpdate(@Param("commentId") Long commentId, @Param("userId") Long userId);
+
     int insertComment(
             @Param("placeId") Long placeId,
             @Param("userId") Long userId,
-            @Param("content") String content
+            @Param("content") String content,
+            @Param("imageKey") String imageKey
     );
 
     int updateComment(

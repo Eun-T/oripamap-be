@@ -11,6 +11,8 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -26,6 +28,8 @@ class S3ImageServiceTest {
     private PutObjectRequest uploadedRequest;
     private byte[] uploadedBytes;
     private boolean failUpload;
+    private DeleteObjectRequest deletedRequest;
+    private boolean failDelete;
     private final S3Client client = (S3Client) Proxy.newProxyInstance(
             S3Client.class.getClassLoader(), new Class<?>[]{S3Client.class}, (proxy, method, args) -> {
                 if (method.getName().equals("putObject")) {
@@ -37,6 +41,11 @@ class S3ImageServiceTest {
                         uploadedBytes = input.readAllBytes();
                     }
                     return PutObjectResponse.builder().build();
+                }
+                if (method.getName().equals("deleteObject")) {
+                    if (failDelete) throw S3Exception.builder().statusCode(403).message("Access denied").build();
+                    deletedRequest = (DeleteObjectRequest) args[0];
+                    return DeleteObjectResponse.builder().build();
                 }
                 throw new UnsupportedOperationException(method.getName());
             });
@@ -78,9 +87,9 @@ class S3ImageServiceTest {
     }
 
     @Test
-    void rejectsFilesOverTenMegabytes() {
+    void rejectsFilesOverFiveMegabytes() {
         ResponseStatusException error = assertThrows(ResponseStatusException.class,
-                () -> service.upload(new MockMultipartFile("file", new byte[10 * 1024 * 1024 + 1])));
+                () -> service.upload(new MockMultipartFile("file", new byte[5 * 1024 * 1024 + 1])));
         assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, error.getStatus());
         assertNull(uploadedRequest);
     }
@@ -104,6 +113,23 @@ class S3ImageServiceTest {
         assertBadRequest(() -> service.createPresignedGetUrl(null));
         assertBadRequest(() -> service.createPresignedGetUrl("private/document.txt"));
         assertBadRequest(() -> service.createPresignedGetUrl("images/../document.png"));
+    }
+
+    @Test
+    void deletesOnlyValidImageKeysFromConfiguredBucket() {
+        String key = "images/12345678-1234-1234-1234-123456789abc.png";
+        assertBadRequest(() -> service.delete("private/document.txt"));
+        assertNull(deletedRequest);
+        service.delete(key);
+        assertEquals("oripa-images", deletedRequest.bucket());
+        assertEquals(key, deletedRequest.key());
+    }
+
+    @Test
+    void reportsS3DeleteFailure() {
+        failDelete = true;
+        assertEquals(HttpStatus.BAD_GATEWAY, assertThrows(ResponseStatusException.class,
+                () -> service.delete("images/12345678-1234-1234-1234-123456789abc.png")).getStatus());
     }
 
     private byte[] image(String format) throws Exception {

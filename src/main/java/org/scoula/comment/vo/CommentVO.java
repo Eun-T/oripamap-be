@@ -12,6 +12,7 @@ public class CommentVO {
     private Long userId;
     private Long parentCommentId;
     private String content;
+    private String imageKey;
 
     private String nickname;
 

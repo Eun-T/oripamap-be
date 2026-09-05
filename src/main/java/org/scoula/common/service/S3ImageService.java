@@ -9,6 +9,7 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -76,6 +77,18 @@ public class S3ImageService {
             return key;
         } catch (SdkException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "이미지 업로드에 실패했습니다.", e);
+        }
+    }
+
+    /** DB에서 확인한 객체 키만 전달한다. 이미 없는 객체의 삭제도 성공으로 처리된다. */
+    public void delete(String key) {
+        if (key == null || !IMAGE_KEY.matcher(key).matches()) {
+            throw badRequest("유효하지 않은 이미지 키입니다.");
+        }
+        try {
+            s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+        } catch (SdkException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "이미지 삭제에 실패했습니다.", e);
         }
     }
 

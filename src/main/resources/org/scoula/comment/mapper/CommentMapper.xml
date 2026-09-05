@@ -15,6 +15,7 @@
         c.user_id AS userId,
         c.parent_comment_id AS parentCommentId,
         c.content,
+        c.image_key AS imageKey,
         u.nickname,
         c.created_at AS createdAt,
         c.updated_at AS updatedAt
@@ -37,15 +38,37 @@
         INSERT INTO comments (
         place_id,
         user_id,
-        content
+        content,
+        image_key
         )
         VALUES (
         #{placeId},
         #{userId},
-        #{content}
+        #{content},
+        #{imageKey}
         )
 
     </insert>
+
+    <select id="findPhotosByPlaceId" resultType="org.scoula.comment.vo.CommentVO">
+        SELECT c.id, c.place_id AS placeId, c.user_id AS userId,
+               c.parent_comment_id AS parentCommentId, c.content,
+               c.image_key AS imageKey, u.nickname,
+               c.created_at AS createdAt, c.updated_at AS updatedAt
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.place_id = #{placeId}
+          AND c.parent_comment_id IS NULL
+          AND c.image_key IS NOT NULL
+        ORDER BY c.created_at DESC, c.id DESC
+    </select>
+
+    <select id="findOwnedByIdForUpdate" resultType="org.scoula.comment.vo.CommentVO">
+        SELECT id, user_id AS userId, image_key AS imageKey
+        FROM comments
+        WHERE id = #{commentId} AND user_id = #{userId}
+        FOR UPDATE
+    </select>
 
     <insert id="insertReply">
         INSERT INTO comments (

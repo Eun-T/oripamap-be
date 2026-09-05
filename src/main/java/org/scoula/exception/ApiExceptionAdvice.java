@@ -10,12 +10,20 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import lombok.extern.log4j.Log4j2;
 
 @RestControllerAdvice
 @Order(2)
 @Log4j2
 public class ApiExceptionAdvice {
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    protected ResponseEntity<String> handleUnreadableBody(HttpMessageNotReadableException e) {
+        return ResponseEntity.badRequest()
+                .header("Content-Type", "text/plain;charset=UTF-8")
+                .body("JSON 요청 본문이 올바르지 않습니다. 이미지 파일은 multipart/form-data로 전송해 주세요.");
+    }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     protected ResponseEntity<String> handleUploadSize(MaxUploadSizeExceededException e) {
