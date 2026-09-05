@@ -16,6 +16,18 @@ public interface CommentMapper {
             @Param("content") String content
     );
 
+    int updateComment(
+            @Param("commentId") Long commentId,
+            @Param("userId") Long userId,
+            @Param("content") String content
+    );
+
+    int insertReply(
+            @Param("parentCommentId") Long parentCommentId,
+            @Param("userId") Long userId,
+            @Param("content") String content
+    );
+
     int deleteComment(
             @Param("commentId") Long commentId,
             @Param("userId") Long userId

@@ -7,7 +7,6 @@
         <setting name="mapUnderscoreToCamelCase" value="true"/>
     </settings>
     <typeAliases>
-        <typeAlias alias="BoardVO" type="org.scoula.board.domain.BoardVO"/>
         <typeAlias alias="MemberVO" type="org.scoula.security.account.domain.MemberVO"/>
         <typeAlias alias="AuthVO" type="org.scoula.security.account.domain.AuthVO"/>
     </typeAliases>

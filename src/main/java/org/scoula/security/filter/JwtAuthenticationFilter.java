@@ -1,9 +1,9 @@
 package org.scoula.security.filter;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
-import org.scoula.security.util.JwtProcessor;
 import org.scoula.security.account.service.CustomUserDetailsService;
+import org.scoula.security.util.JwtCookieUtil;
+import org.scoula.security.util.JwtProcessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,43 +13,59 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
 
 @Component
-@Log4j2
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
     public static final String AUTHORIZATION_HEADER = "Authorization";
     public static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtProcessor jwtProcessor;
     private final CustomUserDetailsService userDetailsService;
 
-    public Authentication  getAuthentication(String token) {
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        return "/api/auth/login".equals(path)
+                || "/api/auth/logout".equals(path)
+                || path.startsWith("/api/auth/kakao/")
+                || "/api/auth/kakao".equals(path);
+    }
+
+    public Authentication getAuthentication(String token) {
         Long userId = jwtProcessor.getUserId(token);
-        UserDetails princiapl = userDetailsService.loadUserById(userId);
-        return new UsernamePasswordAuthenticationToken(princiapl, null, princiapl.getAuthorities());
+        UserDetails principal = userDetailsService.loadUserById(userId);
+        return new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        //authrization이라고 붙어있는 header가 있는지 보고 값을 추출.
-        //값에서 Bearer공백 뒤에 있는 jwt를 추출.
-        String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
-        if (bearerToken != null && bearerToken.startsWith(BEARER_PREFIX)){
-            String token = bearerToken.substring(BEARER_PREFIX.length()); //7인덱스이후의 문자열 추출
-
-            Authentication authentication = getAuthentication(token);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        String token = resolveToken(request);
+        if (token != null) {
+            SecurityContextHolder.getContext().setAuthentication(getAuthentication(token));
         }
-        //jwt유효성검증 --> username추출.
-        //username으로 db에서 가장 최신의 정보를 꺼내온다.
-        //securtycontext에 db에 꺼내온 정보는 넣어둔다.
-        //Authentication인터페이스를 따르는 객체형태로 SpringSecurity의 securtycontext에 저장해둠.
-        super.doFilter(request, response, filterChain);//다음 필터 연결
+        filterChain.doFilter(request, response);
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
+        if (bearerToken != null && bearerToken.startsWith(BEARER_PREFIX)) {
+            return bearerToken.substring(BEARER_PREFIX.length());
+        }
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (JwtCookieUtil.ACCESS_TOKEN_COOKIE_NAME.equals(cookie.getName())
+                        && !cookie.getValue().isBlank()) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
     }
 }

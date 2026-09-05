@@ -13,7 +13,6 @@ import org.springframework.web.servlet.view.JstlView;
         "org.scoula.controller",
         "org.scoula.exception",
         "org.scoula.security.controller",
-        "org.scoula.board.controller",
         "org.scoula.place.controller",
         "org.scoula.favorite.controller",
         "org.scoula.member.controller",

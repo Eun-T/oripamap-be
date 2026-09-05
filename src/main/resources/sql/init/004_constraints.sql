@@ -1,0 +1,42 @@
+USE oripa;
+
+-- ============================================================
+-- UNIQUE CONSTRAINTS
+-- ============================================================
+ALTER TABLE users
+    ADD CONSTRAINT uk_users_provider
+        UNIQUE (provider, provider_id);
+
+ALTER TABLE favorites
+    ADD CONSTRAINT uk_favorites_user_place
+        UNIQUE (user_id, place_id);
+
+
+-- ============================================================
+-- FOREIGN KEY CONSTRAINTS
+-- ============================================================
+ALTER TABLE place_images
+    ADD CONSTRAINT fk_place_images_place
+        FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE,
+    ADD CONSTRAINT fk_place_images_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE comments
+    ADD CONSTRAINT fk_comments_place
+        FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE,
+    ADD CONSTRAINT fk_comments_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    ADD CONSTRAINT fk_comments_parent
+        FOREIGN KEY (parent_comment_id) REFERENCES comments(id) ON DELETE CASCADE;
+
+ALTER TABLE favorites
+    ADD CONSTRAINT fk_favorites_place
+        FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE,
+    ADD CONSTRAINT fk_favorites_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE edit_requests
+    ADD CONSTRAINT fk_edit_requests_place
+        FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE,
+    ADD CONSTRAINT fk_edit_requests_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;

@@ -19,7 +19,6 @@ import javax.sql.DataSource;
 
 @Configuration
 @MapperScan(basePackages  = {
-        "org.scoula.board.mapper",
         "org.scoula.member.mapper",
         "org.scoula.place.mapper",
         "org.scoula.favorite.mapper",
@@ -27,7 +26,6 @@ import javax.sql.DataSource;
         "org.scoula.editrequest.mapper",
 })
 @ComponentScan(basePackages = {
-        "org.scoula.board.service",
         "org.scoula.member.service",
         "org.scoula.place.service",
         "org.scoula.favorite.service",

@@ -1,8 +1,8 @@
 package org.scoula.security.account.dto;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,13 +14,15 @@ import java.io.IOException;
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class LoginDTO {
     //form을 안쓰고 id,pw를 json으로 가지고 오려고 함.
     //json --> dto로 받아서 저장하려고 함.
 
     @JsonAlias("username")
     private String email;
-    private  String password;
+    private String password;
+    private boolean rememberMe;
 
     //http body로 전송된 데이터를 dto에 넣으면 됨.
     public static LoginDTO of(HttpServletRequest request) {

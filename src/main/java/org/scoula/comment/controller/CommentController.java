@@ -43,6 +43,44 @@ public class CommentController {
     }
 
     // 댓글 삭제
+    @PostMapping("/{commentId}/replies")
+    public ResponseEntity<Void> addReply(
+            @PathVariable Long commentId,
+            @RequestBody CommentRequest request,
+            @AuthenticationPrincipal CustomUser user
+    ) {
+        if (request.getContent() == null || request.getContent().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        boolean created = commentService.addReply(
+                commentId,
+                user.getMember().getId(),
+                request.getContent().trim()
+        );
+        return created
+                ? ResponseEntity.status(HttpStatus.CREATED).build()
+                : ResponseEntity.badRequest().build();
+    }
+
+    @PutMapping("/{commentId}")
+    public ResponseEntity<Void> updateComment(
+            @PathVariable Long commentId,
+            @RequestBody CommentRequest request,
+            @AuthenticationPrincipal CustomUser user
+    ) {
+        if (request.getContent() == null || request.getContent().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        boolean updated = commentService.updateComment(
+                commentId,
+                user.getMember().getId(),
+                request.getContent().trim()
+        );
+        return updated
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+
     @DeleteMapping("/{commentId}")
     public ResponseEntity<Void> deleteComment(
             @PathVariable Long commentId,

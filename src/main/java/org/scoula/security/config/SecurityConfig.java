@@ -78,7 +78,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.addAllowedOriginPattern("*");
+        config.addAllowedOrigin("http://localhost:5173");
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         source.registerCorsConfiguration("/**", config);
@@ -123,14 +123,14 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .authorizeRequests() // 경로별 접근 권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
                 .antMatchers(HttpMethod.POST,"/api/member").permitAll()
+                .antMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .antMatchers("/api/auth/kakao/**").permitAll()
                 .antMatchers(HttpMethod.GET, "/api/users/me").authenticated()
                 .antMatchers(HttpMethod.PUT,"/api/member", "/api/member/*/changepassword").authenticated()
-                .antMatchers(HttpMethod.POST, "/api/board/**").authenticated()
-                .antMatchers(HttpMethod.PUT, "/api/board/**").authenticated()
-                .antMatchers(HttpMethod.DELETE, "/api/board/**").authenticated()
                 .antMatchers(HttpMethod.POST, "/api/comments/**").authenticated()
+                .antMatchers(HttpMethod.PUT, "/api/comments/**").authenticated()
                 .antMatchers(HttpMethod.DELETE, "/api/comments/**").authenticated()
+                .antMatchers(HttpMethod.POST, "/api/edit-requests").authenticated()
                 .antMatchers("/api/favorites/**").authenticated()
                 .anyRequest().permitAll(); // 일단 모든 접근 허용
 //                .antMatchers("/api/security/all").permitAll() // 모두 허용

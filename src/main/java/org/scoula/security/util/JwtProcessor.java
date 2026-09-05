@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.time.Duration;
 import java.util.Date;
 
 @Component //프로젝트 시작할 때 싱글톤으로 만들고 시작.
@@ -25,10 +26,15 @@ public class JwtProcessor {
 
     //JWT생성
     public String generateToken(Long userId){
+        return generateToken(userId, Duration.ofMillis(TOKEN_VALID_MILISECOND));
+    }
+
+    public String generateToken(Long userId, Duration validity) {
+        Date issuedAt = new Date();
         return Jwts.builder()
                 .setSubject(String.valueOf(userId))
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(new Date().getTime() + TOKEN_VALID_MILISECOND))
+                .setIssuedAt(issuedAt)
+                .setExpiration(new Date(issuedAt.getTime() + validity.toMillis()))
                 .signWith(key)
                 .compact();
     }

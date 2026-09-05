@@ -13,6 +13,7 @@
         c.id,
         c.place_id AS placeId,
         c.user_id AS userId,
+        c.parent_comment_id AS parentCommentId,
         c.content,
         u.nickname,
         c.created_at AS createdAt,
@@ -46,8 +47,33 @@
 
     </insert>
 
+    <insert id="insertReply">
+        INSERT INTO comments (
+            place_id,
+            user_id,
+            parent_comment_id,
+            content
+        )
+        SELECT
+            parent.place_id,
+            #{userId},
+            parent.id,
+            #{content}
+        FROM comments parent
+        WHERE parent.id = #{parentCommentId}
+          AND parent.parent_comment_id IS NULL
+    </insert>
+
 
     <!-- 댓글 삭제 -->
+    <update id="updateComment">
+        UPDATE comments
+        SET content = #{content},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{commentId}
+          AND user_id = #{userId}
+    </update>
+
     <delete id="deleteComment">
 
         DELETE FROM comments

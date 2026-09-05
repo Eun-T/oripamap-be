@@ -5,8 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
-import org.scoula.security.account.dto.AuthResultDTO;
-import org.scoula.security.account.dto.UserInfoDTO;
+import org.scoula.security.util.JwtCookieUtil;
 import org.scoula.security.util.JwtProcessor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -57,6 +56,9 @@ public class KakaoAuthController {
     @Value("${kakao.client-secret:}")
     private String clientSecret;
 
+    @Value("${frontend.redirect-uri:http://localhost:5173}")
+    private String frontendRedirectUri;
+
     @GetMapping
     public ResponseEntity<Void> login(HttpServletResponse response) {
         byte[] stateBytes = new byte[32];
@@ -82,7 +84,7 @@ public class KakaoAuthController {
     }
 
     @GetMapping("/callback")
-    public ResponseEntity<AuthResultDTO> callback(
+    public ResponseEntity<Void> callback(
             @RequestParam String code,
             @RequestParam String state,
             @CookieValue(value = "kakao_oauth_state", required = false) String savedState,
@@ -127,7 +129,10 @@ public class KakaoAuthController {
             }
 
             String jwt = jwtProcessor.generateToken(member.getId());
-            return ResponseEntity.ok(new AuthResultDTO(jwt, UserInfoDTO.of(member)));
+            JwtCookieUtil.addAccessTokenCookie(response, jwt);
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(URI.create(frontendRedirectUri))
+                    .build();
         } catch (ResponseStatusException e) {
             throw e;
         } catch (HttpStatusCodeException e) {

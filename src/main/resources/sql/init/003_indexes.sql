@@ -1,3 +1,5 @@
+USE oripa;
+
 -- ============================================================
 -- PLACES
 -- ============================================================
@@ -23,6 +25,9 @@ CREATE INDEX idx_places_location
 CREATE INDEX idx_place_images_place
     ON place_images(place_id);
 
+CREATE INDEX idx_place_images_user
+    ON place_images(user_id);
+
 
 -- ============================================================
 -- COMMENTS
@@ -36,6 +41,9 @@ CREATE INDEX idx_comments_place
 CREATE INDEX idx_comments_user
     ON comments(user_id);
 
+CREATE INDEX idx_comments_parent
+    ON comments(parent_comment_id);
+
 
 -- ============================================================
 -- FAVORITES
@@ -44,3 +52,19 @@ CREATE INDEX idx_comments_user
 -- 장소의 저장 수/저장 사용자 조회
 CREATE INDEX idx_favorites_place
     ON favorites(place_id);
+
+CREATE INDEX idx_favorites_user
+    ON favorites(user_id);
+
+-- ============================================================
+-- EDIT_REQUESTS
+-- ============================================================
+
+CREATE INDEX idx_edit_requests_place
+    ON edit_requests(place_id);
+
+CREATE INDEX idx_edit_requests_user
+    ON edit_requests(user_id);
+
+CREATE INDEX idx_edit_requests_status
+    ON edit_requests(status);

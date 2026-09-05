@@ -33,12 +33,7 @@ CREATE TABLE users (
                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                           ON UPDATE CURRENT_TIMESTAMP,
-
-                       UNIQUE KEY uk_users_provider (
-                           provider,
-                           provider_id
-                           )
+                           ON UPDATE CURRENT_TIMESTAMP
 );
 
 
@@ -95,17 +90,7 @@ CREATE TABLE place_images (
 
                               sort_order INT DEFAULT 0,
 
-                              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-                              CONSTRAINT fk_place_images_place
-                                  FOREIGN KEY (place_id)
-                                      REFERENCES places(id)
-                                      ON DELETE CASCADE,
-
-                              CONSTRAINT fk_place_images_user
-                                  FOREIGN KEY (user_id)
-                                      REFERENCES users(id)
-                                      ON DELETE SET NULL
+                              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -119,22 +104,14 @@ CREATE TABLE comments (
 
                           user_id BIGINT NOT NULL,
 
+                          parent_comment_id BIGINT NULL,
+
                           content TEXT NOT NULL,
 
                           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
                           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                              ON UPDATE CURRENT_TIMESTAMP,
-
-                          CONSTRAINT fk_comments_place
-                              FOREIGN KEY (place_id)
-                                  REFERENCES places(id)
-                                  ON DELETE CASCADE,
-
-                          CONSTRAINT fk_comments_user
-                              FOREIGN KEY (user_id)
-                                  REFERENCES users(id)
-                                  ON DELETE CASCADE
+                              ON UPDATE CURRENT_TIMESTAMP
 );
 
 
@@ -148,20 +125,7 @@ CREATE TABLE favorites (
 
                            user_id BIGINT NOT NULL,
 
-                           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-                           CONSTRAINT fk_favorites_place
-                               FOREIGN KEY (place_id)
-                                   REFERENCES places(id)
-                                   ON DELETE CASCADE,
-
-                           CONSTRAINT fk_favorites_user
-                               FOREIGN KEY (user_id)
-                                   REFERENCES users(id)
-                                   ON DELETE CASCADE,
-
-                           CONSTRAINT uk_favorites_user_place
-                               UNIQUE (user_id, place_id)
+                           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE edit_requests (
@@ -176,19 +140,5 @@ CREATE TABLE edit_requests (
                                status ENUM('PENDING', 'APPROVED', 'REJECTED')
         NOT NULL DEFAULT 'PENDING',
 
-                               created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-                               CONSTRAINT fk_edit_requests_place
-                                   FOREIGN KEY (place_id)
-                                       REFERENCES places(id)
-                                       ON DELETE CASCADE,
-
-                               CONSTRAINT fk_edit_requests_user
-                                   FOREIGN KEY (user_id)
-                                       REFERENCES users(id)
-                                       ON DELETE CASCADE,
-
-                               INDEX idx_edit_requests_place_id (place_id),
-                               INDEX idx_edit_requests_user_id (user_id),
-                               INDEX idx_edit_requests_status (status)
+                               created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

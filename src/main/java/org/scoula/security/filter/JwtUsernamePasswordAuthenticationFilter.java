@@ -21,6 +21,8 @@ import javax.servlet.http.HttpServletResponse;
 @Component
 public class JwtUsernamePasswordAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
 
+    public static final String REMEMBER_ME_ATTRIBUTE = "rememberMe";
+
     //부모생성자가 호출되어 먼저 만들어져야함. --> 부모생성자는 AuthenticationManager를 입력값으로 하는 생성자를 씀.
     //자식생성자에서 부모생성자를 가시성있게 호출해야함.
     public JwtUsernamePasswordAuthenticationFilter(AuthenticationManager authenticationManager,
@@ -39,6 +41,7 @@ public class JwtUsernamePasswordAuthenticationFilter extends UsernamePasswordAut
         //필터처리할 내용을 구현하면 됨.
         //http body로 전달할 json을 꺼내서 dto로 옮겨주어야함.
         LoginDTO login = LoginDTO.of(request);
+        request.setAttribute(REMEMBER_ME_ATTRIBUTE, login.isRememberMe());
 
         //인증매니저에게 id/pw 인증해달라고 요청(username/passwordtoken으로 만들어서 주어야함.)
         UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(login.getEmail(), login.getPassword());

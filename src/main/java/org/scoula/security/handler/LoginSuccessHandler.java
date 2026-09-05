@@ -1,47 +1,38 @@
 package org.scoula.security.handler;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
 import org.scoula.security.account.domain.CustomUser;
-import org.scoula.security.account.dto.AuthResultDTO;
 import org.scoula.security.account.dto.UserInfoDTO;
+import org.scoula.security.filter.JwtUsernamePasswordAuthenticationFilter;
 import org.scoula.security.util.JsonResponse;
+import org.scoula.security.util.JwtCookieUtil;
 import org.scoula.security.util.JwtProcessor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Duration;
 
-@Log4j2
 @Component
 @RequiredArgsConstructor
 public class LoginSuccessHandler implements AuthenticationSuccessHandler {
+    private static final Duration DEFAULT_LOGIN_DURATION = Duration.ofMinutes(30);
+    private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(7);
 
     private final JwtProcessor jwtProcessor;
 
-    private AuthResultDTO makeAuthResult(CustomUser user){
-        Long userId = user.getMember().getId();
-        String token = jwtProcessor.generateToken(userId);
-        return new AuthResultDTO(token, UserInfoDTO.of(user.getMember()));
-    }
-
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request,
-                                        HttpServletResponse response,
-                                        Authentication authentication) throws IOException, ServletException {
-        //인증한 username의 db에서 가지고 온 정보를 UserInfoDTO로 만들고,
-        //인증한 username의 정보를 jwt로 만든 것
-        //AuthResultDTO에 모아야 함. --> 별도의 메서드를 만들자.
-        // --> JsonResponse의 send(dto)를 호출하면 됨.
-
-        //로그인한 사람의 정보인 CustomUser를 가지고 와야함.
-        //이 정보를 꺼내올 수 있는 객체가 Authentication임.
-        CustomUser user = (CustomUser)authentication.getPrincipal();
-        AuthResultDTO result = makeAuthResult(user);
-        JsonResponse.send(response, result);
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+                                        Authentication authentication) throws IOException {
+        CustomUser user = (CustomUser) authentication.getPrincipal();
+        boolean rememberMe = Boolean.TRUE.equals(request.getAttribute(
+                JwtUsernamePasswordAuthenticationFilter.REMEMBER_ME_ATTRIBUTE));
+        Duration loginDuration = rememberMe ? REMEMBER_ME_DURATION : DEFAULT_LOGIN_DURATION;
+        String token = jwtProcessor.generateToken(user.getMember().getId(), loginDuration);
+        JwtCookieUtil.addAccessTokenCookie(response, token, loginDuration);
+        JsonResponse.send(response, UserInfoDTO.of(user.getMember()));
     }
 }

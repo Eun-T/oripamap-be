@@ -10,6 +10,7 @@ public class CommentVO {
     private Long id;
     private Long placeId;
     private Long userId;
+    private Long parentCommentId;
     private String content;
 
     private String nickname;
