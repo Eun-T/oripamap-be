@@ -122,23 +122,22 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         http
                 .authorizeRequests() // 경로별 접근 권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
-                .antMatchers(HttpMethod.POST,"/api/member").permitAll()
-                .antMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
-                .antMatchers("/api/auth/kakao/**").permitAll()
-                .antMatchers("/api/auth/naver/**").permitAll()
-                .antMatchers(HttpMethod.GET, "/api/users/me").authenticated()
-                .antMatchers(HttpMethod.PUT, "/api/member/**").authenticated()
-                .antMatchers(HttpMethod.POST, "/api/comments/**").authenticated()
-                .antMatchers(HttpMethod.PUT, "/api/comments/**").authenticated()
-                .antMatchers(HttpMethod.DELETE, "/api/comments/**").authenticated()
-                .antMatchers(HttpMethod.POST, "/api/edit-requests").authenticated()
-                .antMatchers(HttpMethod.POST, "/api/images").authenticated()
-                .antMatchers("/api/favorites/**").authenticated()
-                .anyRequest().permitAll(); // 일단 모든 접근 허용
-//                .antMatchers("/api/security/all").permitAll() // 모두 허용
-//                .antMatchers("/api/security/member").access("hasRole('ROLE_MEMBER')") // ROLE_MEMBER 이상 접근 허용
-//                .antMatchers("/api/security/admin").access("hasRole('ROLE_ADMIN')")
-//                .anyRequest().authenticated();
+                .antMatchers(HttpMethod.POST,
+                        "/api/auth/login",
+                        "/api/auth/logout",
+                        "/api/member").permitAll()
+                .antMatchers(HttpMethod.GET,
+                        "/api/auth/kakao",
+                        "/api/auth/kakao/callback",
+                        "/api/auth/naver",
+                        "/api/auth/naver/callback",
+                        "/api/places",
+                        "/api/places/search",
+                        "/api/comments/place/*",
+                        "/api/comments/place/*/photos",
+                        "/api/member/checkemail/*",
+                        "/api/member/checkusername/*").permitAll()
+                .anyRequest().authenticated();
 
         // 기본 로그인 화면 다시 활성화
         // http.formLogin();

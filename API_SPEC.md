@@ -234,6 +234,8 @@ password, rememberMe
 ## 4. 인증 및 제한
 
 -   보호 API는 JWT Bearer 토큰 또는 `accessToken` 쿠키로 인증한다.
+-   공개 API만 `permitAll()`로 명시하며 그 외 요청은 기본적으로 인증이
+    필요하다.
 -   회원 PUT API는 `/api/member/**`에 대해 인증이 필요하다.
 -   프로필/비밀번호 변경 시 URL username과 JWT 인증 사용자가 다르면
     `403 Forbidden`이다.
@@ -256,5 +258,4 @@ DELETE                           2
 
 ## 6. 현재 확인 필요 항목
 
--   장기적으로 Spring Security의 `anyRequest().permitAll()` 대신
-    deny-by-default 정책 검토
+-   현재 확인된 보안 및 데이터 정합성 개선 항목은 모두 반영되었다.
