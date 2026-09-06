@@ -127,7 +127,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .antMatchers("/api/auth/kakao/**").permitAll()
                 .antMatchers("/api/auth/naver/**").permitAll()
                 .antMatchers(HttpMethod.GET, "/api/users/me").authenticated()
-                .antMatchers(HttpMethod.PUT,"/api/member", "/api/member/*/changepassword").authenticated()
+                .antMatchers(HttpMethod.PUT, "/api/member/**").authenticated()
                 .antMatchers(HttpMethod.POST, "/api/comments/**").authenticated()
                 .antMatchers(HttpMethod.PUT, "/api/comments/**").authenticated()
                 .antMatchers(HttpMethod.DELETE, "/api/comments/**").authenticated()

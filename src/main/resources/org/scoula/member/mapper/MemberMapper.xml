@@ -29,11 +29,12 @@
           AND provider = 'LOCAL'
     </select>
 
-    <select id="findByUsername" resultType="org.scoula.security.account.domain.MemberVO">
-        SELECT id, email, password, nickname, provider, provider_id,
-               created_at, updated_at
-        FROM users
-        WHERE email = #{email}
+    <select id="existsByEmail" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM users
+            WHERE email = #{email}
+        )
     </select>
 
     <insert id="insert">

@@ -78,7 +78,7 @@ class SocialAccountRegistrationServiceTest {
         }
 
         @Override
-        public MemberVO findByUsername(String email) {
+        public boolean existsByEmail(String email) {
             throw new UnsupportedOperationException();
         }
 

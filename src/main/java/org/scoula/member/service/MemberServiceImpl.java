@@ -24,9 +24,8 @@ public class MemberServiceImpl  implements MemberService {
     final MemberMapper mapper;
 
     @Override
-    public boolean checkDuplicate(String username) {
-        MemberVO member = mapper.findByUsername(username);
-        return member != null ? true : false;
+    public boolean existsByEmail(String email) {
+        return mapper.existsByEmail(email);
     }
 
     @Override
@@ -46,23 +45,25 @@ public class MemberServiceImpl  implements MemberService {
     }
 
     @Override
-    public MemberDTO update(MemberUpdateDTO member) {
-        MemberVO vo = mapper.get(member.getUsername());
+    public MemberDTO update(String authenticatedUsername, MemberUpdateDTO member) {
+        MemberVO vo = mapper.get(authenticatedUsername);
         if(!passwordEncoder.matches(member.getPassword(),vo.getPassword())) {  // 비밀번호 일치 확인
             throw new PasswordMissmatchException();
         }
+        member.setUsername(authenticatedUsername);
         mapper.update(member.toVO());
-        return get(member.getUsername());
+        return get(member.getEmail());
     }
 
     @Override
-    public void changePassword(ChangePasswordDTO changePassword) {
-        MemberVO member = mapper.get(changePassword.getUsername());
+    public void changePassword(String authenticatedUsername, ChangePasswordDTO changePassword) {
+        MemberVO member = mapper.get(authenticatedUsername);
 
         if(!passwordEncoder.matches(changePassword.getOldPassword(), member.getPassword())) {
             throw new PasswordMissmatchException();
         }
 
+        changePassword.setUsername(authenticatedUsername);
         changePassword.setNewPassword(passwordEncoder.encode(changePassword.getNewPassword()));
 
         mapper.updatePassword(changePassword);

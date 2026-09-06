@@ -7,8 +7,11 @@ import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
 import org.scoula.member.service.MemberService;
+import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -19,13 +22,14 @@ import org.springframework.web.bind.annotation.*;
 public class MemberController {
     final MemberService service;
 
-    @GetMapping("/checkusername/{username}")
-    public ResponseEntity<Boolean> checkUsername(@PathVariable String username) {
-        return ResponseEntity.ok().body(service.checkDuplicate(username));
+    @Deprecated
+    @GetMapping("/checkusername/{email}")
+    public ResponseEntity<Boolean> checkEmailCompatibilityAlias(@PathVariable("email") String email) {
+        return ResponseEntity.ok(service.existsByEmail(email));
     }
     @GetMapping("/checkemail/{email}")
-    public ResponseEntity<Boolean> checkEmail(@PathVariable String email) {
-        return ResponseEntity.ok(service.checkDuplicate(email));
+    public ResponseEntity<Boolean> checkEmail(@PathVariable("email") String email) {
+        return ResponseEntity.ok(service.existsByEmail(email));
     }
     @PostMapping("")
     public ResponseEntity<MemberDTO> join(MemberJoinDTO member) {
@@ -35,22 +39,35 @@ public class MemberController {
                     && (member.getUsername() == null || member.getUsername().isBlank()))) {
             return ResponseEntity.badRequest().build();
         }
-        if (service.checkDuplicate(member.getEmail())) {
+        if (service.existsByEmail(member.getEmail())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(service.join(member));
     }
 
     @PutMapping("/{username}")
-    public ResponseEntity<MemberDTO> changeProfile(MemberUpdateDTO member) {
-        return ResponseEntity.ok(service.update(member));
+    public ResponseEntity<MemberDTO> changeProfile(
+            @PathVariable("username") String username,
+            MemberUpdateDTO member,
+            @AuthenticationPrincipal CustomUser user) {
+        validateOwner(username, user);
+        return ResponseEntity.ok(service.update(user.getUsername(), member));
     }
 
     @PutMapping("/{username}/changepassword")
-    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordDTO changePasswordDTO) {
-        service.changePassword(changePasswordDTO);
+    public ResponseEntity<?> changePassword(
+            @PathVariable("username") String username,
+            @RequestBody ChangePasswordDTO changePasswordDTO,
+            @AuthenticationPrincipal CustomUser user) {
+        validateOwner(username, user);
+        service.changePassword(user.getUsername(), changePasswordDTO);
         return ResponseEntity.ok().build();
     }
 
+    private void validateOwner(String username, CustomUser user) {
+        if (!user.getUsername().equals(username)) {
+            throw new AccessDeniedException("다른 회원의 정보를 변경할 수 없습니다.");
+        }
+    }
 
 }

@@ -3,6 +3,8 @@ package org.scoula.editrequest.controller;
 import lombok.RequiredArgsConstructor;
 import org.scoula.editrequest.dto.EditRequestRequest;
 import org.scoula.editrequest.service.EditRequestService;
+import org.scoula.security.account.domain.CustomUser;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,8 +16,9 @@ public class EditRequestController {
 
     @PostMapping
     public void addEditRequest(
-            @RequestBody EditRequestRequest request
+            @RequestBody EditRequestRequest request,
+            @AuthenticationPrincipal CustomUser user
     ) {
-        editRequestService.addEditRequest(request);
+        editRequestService.addEditRequest(request, user.getMember().getId());
     }
 }

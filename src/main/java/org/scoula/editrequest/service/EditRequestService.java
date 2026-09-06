@@ -11,16 +11,14 @@ public class EditRequestService {
 
     private final EditRequestMapper editRequestMapper;
 
-    private static final Long TEST_USER_ID = 1L;
-
-    public void addEditRequest(EditRequestRequest request) {
+    public void addEditRequest(EditRequestRequest request, Long userId) {
 
         String requestTypes =
                 String.join(",", request.getRequestTypes());
 
         editRequestMapper.insertEditRequest(
                 request.getPlaceId(),
-                TEST_USER_ID,
+                userId,
                 requestTypes,
                 request.getMemo()
         );

@@ -6,10 +6,10 @@ import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
 
 public interface MemberService {
-    boolean checkDuplicate(String username);
+    boolean existsByEmail(String email);
     MemberDTO get(String username);
     MemberDTO join(MemberJoinDTO member);
-    MemberDTO update(MemberUpdateDTO member);
-    void changePassword(ChangePasswordDTO changePassword);
+    MemberDTO update(String authenticatedUsername, MemberUpdateDTO member);
+    void changePassword(String authenticatedUsername, ChangePasswordDTO changePassword);
 
 }
