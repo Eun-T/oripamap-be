@@ -3,10 +3,13 @@ package org.scoula.security.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
+import org.scoula.security.service.SocialAccountRegistrationService;
 import org.scoula.security.util.JwtCookieUtil;
 import org.scoula.security.util.JwtProcessor;
+import org.scoula.security.util.OAuthStateCookieUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +37,7 @@ import java.util.Base64;
 @RestController
 @RequestMapping("/api/auth/kakao")
 @RequiredArgsConstructor
+@Log4j2
 public class KakaoAuthController {
 
     private static final String AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize";
@@ -44,6 +48,8 @@ public class KakaoAuthController {
     private final MemberMapper memberMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtProcessor jwtProcessor;
+    private final JwtCookieUtil jwtCookieUtil;
+    private final SocialAccountRegistrationService socialAccountRegistrationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -59,15 +65,21 @@ public class KakaoAuthController {
     @Value("${frontend.redirect-uri:http://localhost:5173}")
     private String frontendRedirectUri;
 
+    @Value("${oauth.state-cookie.secure:false}")
+    private boolean stateCookieSecure;
+
     @GetMapping
     public ResponseEntity<Void> login(HttpServletResponse response) {
         byte[] stateBytes = new byte[32];
         SECURE_RANDOM.nextBytes(stateBytes);
         String state = Base64.getUrlEncoder().withoutPadding().encodeToString(stateBytes);
 
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                "kakao_oauth_state=" + state
-                        + "; Path=/api/auth/kakao; Max-Age=300; HttpOnly; SameSite=Lax");
+        OAuthStateCookieUtil.addStateCookie(
+                response,
+                "kakao_oauth_state",
+                state,
+                "/api/auth/kakao",
+                stateCookieSecure);
 
         URI location = UriComponentsBuilder.fromHttpUrl(AUTHORIZE_URL)
                 .queryParam("client_id", clientId)
@@ -93,15 +105,19 @@ public class KakaoAuthController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 카카오 로그인 요청입니다.");
         }
 
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                "kakao_oauth_state=; Path=/api/auth/kakao; Max-Age=0; HttpOnly; SameSite=Lax");
+        OAuthStateCookieUtil.deleteStateCookie(
+                response,
+                "kakao_oauth_state",
+                "/api/auth/kakao",
+                stateCookieSecure);
 
         try {
             String accessToken = requestAccessToken(code);
             JsonNode kakaoUser = requestUserInfo(accessToken);
             String providerId = kakaoUser.path("id").asText();
             if (providerId.isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "카카오 사용자 ID를 받지 못했습니다.");
+                log.warn("카카오 사용자 정보 응답에 사용자 ID가 없습니다.");
+                throw kakaoLoginException(null);
             }
 
             MemberVO member = memberMapper.findByProvider("KAKAO", providerId);
@@ -124,24 +140,22 @@ public class KakaoAuthController {
                         .provider("KAKAO")
                         .providerId(providerId)
                         .build();
-                memberMapper.insertSocial(member);
-                member = memberMapper.findByProvider("KAKAO", providerId);
+                member = socialAccountRegistrationService.insertOrGetExisting(member);
             }
 
             String jwt = jwtProcessor.generateToken(member.getId());
-            JwtCookieUtil.addAccessTokenCookie(response, jwt);
+            jwtCookieUtil.addAccessTokenCookie(response, jwt);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(URI.create(frontendRedirectUri))
                     .build();
         } catch (ResponseStatusException e) {
             throw e;
         } catch (HttpStatusCodeException e) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    "카카오 API 오류: " + e.getResponseBodyAsString(),
-                    e);
+            logKakaoApiError("로그인 처리", e);
+            throw kakaoLoginException(e);
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "카카오 로그인 처리에 실패했습니다.", e);
+            log.error("카카오 로그인 처리 중 오류가 발생했습니다.", e);
+            throw kakaoLoginException(e);
         }
     }
 
@@ -165,7 +179,8 @@ public class KakaoAuthController {
         }
         String accessToken = objectMapper.readTree(body).path("access_token").asText();
         if (accessToken.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "카카오 액세스 토큰을 받지 못했습니다.");
+            log.warn("카카오 토큰 응답에 access_token이 없습니다.");
+            throw kakaoLoginException(null);
         }
         return accessToken;
     }
@@ -183,14 +198,20 @@ public class KakaoAuthController {
     }
 
     private ResponseStatusException kakaoApiException(String stage, HttpStatusCodeException e) {
+        logKakaoApiError(stage, e);
+        return kakaoLoginException(e);
+    }
+
+    private void logKakaoApiError(String stage, HttpStatusCodeException e) {
         String detail = e.getResponseBodyAsString();
         if (detail == null || detail.isBlank()) {
             detail = "응답 본문 없음";
         }
-        return new ResponseStatusException(
-                HttpStatus.BAD_GATEWAY,
-                "카카오 " + stage + " 실패 (HTTP " + e.getRawStatusCode() + "): " + detail,
-                e);
+        log.warn("카카오 {} 실패: HTTP {}, 응답={}", stage, e.getRawStatusCode(), detail);
+    }
+
+    private ResponseStatusException kakaoLoginException(Exception cause) {
+        return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "카카오 로그인에 실패했습니다.", cause);
     }
 
     private String randomValue() {

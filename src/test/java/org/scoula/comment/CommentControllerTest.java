@@ -60,6 +60,21 @@ class CommentControllerTest {
         assertNull(f.insertArgs[3]);
     }
 
+    @Test void commentContentAccepts300CharactersAndRejects301() throws Exception {
+        String valid = "가".repeat(300);
+        String tooLong = valid + "나";
+
+        assertEquals(201, mvc.perform(post("/api/comments/place/1").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"content\":\"" + valid + "\"}"))
+                .andReturn().getResponse().getStatus());
+        f.events.clear();
+
+        assertEquals(400, mvc.perform(multipart("/api/comments/place/1")
+                .file(file("file")).param("content", tooLong))
+                .andReturn().getResponse().getStatus());
+        assertTrue(f.events.isEmpty());
+    }
+
     @Test void repeatedFilesAndUnexpectedFileFieldsReturn400() throws Exception {
         assertEquals(400, mvc.perform(multipart("/api/comments/place/1")
                 .file(file("file")).file(file("file")).param("content", "text")).andReturn().getResponse().getStatus());

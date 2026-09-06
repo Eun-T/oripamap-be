@@ -3,10 +3,13 @@ package org.scoula.security.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
+import org.scoula.security.service.SocialAccountRegistrationService;
 import org.scoula.security.util.JwtCookieUtil;
 import org.scoula.security.util.JwtProcessor;
+import org.scoula.security.util.OAuthStateCookieUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -35,6 +38,7 @@ import java.util.Base64;
 @RestController
 @RequestMapping("/api/auth/naver")
 @RequiredArgsConstructor
+@Log4j2
 public class NaverAuthController {
 
     private static final String AUTHORIZE_URL = "https://nid.naver.com/oauth2.0/authorize";
@@ -45,6 +49,8 @@ public class NaverAuthController {
     private final MemberMapper memberMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtProcessor jwtProcessor;
+    private final JwtCookieUtil jwtCookieUtil;
+    private final SocialAccountRegistrationService socialAccountRegistrationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -60,13 +66,19 @@ public class NaverAuthController {
     @Value("${frontend.redirect-uri:http://localhost:5173}")
     private String frontendRedirectUri;
 
+    @Value("${oauth.state-cookie.secure:false}")
+    private boolean stateCookieSecure;
+
     @GetMapping
     public ResponseEntity<Void> login(HttpServletResponse response) {
         String state = randomValue();
 
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                "naver_oauth_state=" + state
-                        + "; Path=/api/auth/naver; Max-Age=300; HttpOnly; SameSite=Lax");
+        OAuthStateCookieUtil.addStateCookie(
+                response,
+                "naver_oauth_state",
+                state,
+                "/api/auth/naver",
+                stateCookieSecure);
 
         URI location = UriComponentsBuilder.fromHttpUrl(AUTHORIZE_URL)
                 .queryParam("response_type", "code")
@@ -92,15 +104,19 @@ public class NaverAuthController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 네이버 로그인 요청입니다.");
         }
 
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                "naver_oauth_state=; Path=/api/auth/naver; Max-Age=0; HttpOnly; SameSite=Lax");
+        OAuthStateCookieUtil.deleteStateCookie(
+                response,
+                "naver_oauth_state",
+                "/api/auth/naver",
+                stateCookieSecure);
 
         try {
             String accessToken = requestAccessToken(code, state);
             JsonNode naverUser = requestUserInfo(accessToken).path("response");
             String providerId = naverUser.path("id").asText();
             if (providerId.isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "네이버 사용자 ID를 받지 못했습니다.");
+                log.warn("네이버 사용자 정보 응답에 사용자 ID가 없습니다.");
+                throw naverLoginException(null);
             }
 
             MemberVO member = memberMapper.findByProvider("NAVER", providerId);
@@ -125,24 +141,22 @@ public class NaverAuthController {
                         .provider("NAVER")
                         .providerId(providerId)
                         .build();
-                memberMapper.insertSocial(member);
-                member = memberMapper.findByProvider("NAVER", providerId);
+                member = socialAccountRegistrationService.insertOrGetExisting(member);
             }
 
             String jwt = jwtProcessor.generateToken(member.getId());
-            JwtCookieUtil.addAccessTokenCookie(response, jwt);
+            jwtCookieUtil.addAccessTokenCookie(response, jwt);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(URI.create(frontendRedirectUri))
                     .build();
         } catch (ResponseStatusException e) {
             throw e;
         } catch (HttpStatusCodeException e) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    "네이버 API 오류: " + e.getResponseBodyAsString(),
-                    e);
+            logNaverApiError("로그인 처리", e);
+            throw naverLoginException(e);
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "네이버 로그인 처리에 실패했습니다.", e);
+            log.error("네이버 로그인 처리 중 오류가 발생했습니다.", e);
+            throw naverLoginException(e);
         }
     }
 
@@ -166,9 +180,9 @@ public class NaverAuthController {
         String accessToken = tokenResponse.path("access_token").asText();
         if (accessToken.isBlank()) {
             String errorDescription = tokenResponse.path("error_description").asText();
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    errorDescription.isBlank() ? "네이버 액세스 토큰을 받지 못했습니다." : errorDescription);
+            log.warn("네이버 토큰 응답에 access_token이 없습니다: 오류={}",
+                    errorDescription.isBlank() ? "상세 정보 없음" : errorDescription);
+            throw naverLoginException(null);
         }
         return accessToken;
     }
@@ -189,22 +203,29 @@ public class NaverAuthController {
 
         JsonNode result = objectMapper.readTree(body);
         if (!"00".equals(result.path("resultcode").asText())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    "네이버 사용자 정보 조회 실패: " + result.path("message").asText());
+            log.warn("네이버 사용자 정보 조회 실패: resultcode={}, 메시지={}",
+                    result.path("resultcode").asText(),
+                    result.path("message").asText());
+            throw naverLoginException(null);
         }
         return result;
     }
 
     private ResponseStatusException naverApiException(String stage, HttpStatusCodeException e) {
+        logNaverApiError(stage, e);
+        return naverLoginException(e);
+    }
+
+    private void logNaverApiError(String stage, HttpStatusCodeException e) {
         String detail = e.getResponseBodyAsString();
         if (detail == null || detail.isBlank()) {
             detail = "응답 본문 없음";
         }
-        return new ResponseStatusException(
-                HttpStatus.BAD_GATEWAY,
-                "네이버 " + stage + " 실패 (HTTP " + e.getRawStatusCode() + "): " + detail,
-                e);
+        log.warn("네이버 {} 실패: HTTP {}, 응답={}", stage, e.getRawStatusCode(), detail);
+    }
+
+    private ResponseStatusException naverLoginException(Exception cause) {
+        return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "네이버 로그인에 실패했습니다.", cause);
     }
 
     private String randomValue() {

@@ -1,14 +1,14 @@
 package org.scoula.security.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Duration;
 import java.util.Date;
@@ -17,11 +17,25 @@ import java.util.Date;
 public class JwtProcessor {
     static private final long TOKEN_VALID_MILISECOND = 1000L * 60 * 30; // 30 분
 
-    private String secretKey
-            = "충분히긴임의의(랜덤한) 비밀키문자열배정";
-    private Key key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+    private final Key key;
 
-    //private Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);  -- 운영시 사용
+    public JwtProcessor(@Value("${jwt.secret}") String encodedSecret) {
+        if (encodedSecret == null || encodedSecret.isBlank()) {
+            throw new IllegalStateException("JWT_SECRET 환경변수가 필요합니다.");
+        }
+
+        final byte[] keyBytes;
+        try {
+            keyBytes = Decoders.BASE64.decode(encodedSecret.trim());
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("JWT_SECRET은 Base64 형식이어야 합니다.", e);
+        }
+
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("JWT_SECRET은 디코딩 후 32바이트 이상이어야 합니다.");
+        }
+        this.key = Keys.hmacShaKeyFor(keyBytes);
+    }
 
 
     //JWT생성

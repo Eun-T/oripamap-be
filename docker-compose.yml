@@ -1,0 +1,27 @@
+services:
+  backend:
+    build: .
+    container_name: oripa-backend
+
+    env_file:
+      - .env
+
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      AWS_PROFILE: oripa
+
+    volumes:
+      - ${USERPROFILE}/.aws:/root/.aws:ro
+
+    expose:
+      - "8080"
+
+  nginx:
+    image: nginx:alpine
+    container_name: oripa-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend

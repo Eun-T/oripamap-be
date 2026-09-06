@@ -13,7 +13,8 @@ import javax.servlet.ServletRegistration;
 public class WebConfig extends AbstractAnnotationConfigDispatcherServletInitializer {
     //스프링 설정 파일 중 위 클래스를 상속받은 클래스를 찾음.
     //다른 설정용 클래스를 지정함.
-    final String LOCATION = "c:/upload";
+    // Windows와 Linux 컨테이너 모두 JVM의 임시 디렉터리를 사용한다.
+    final String LOCATION = System.getProperty("java.io.tmpdir");
     final long MAX_FILE_SIZE = 1024 * 1024 * 10L;
     final long MAX_REQUEST_SIZE = 1024 * 1024 * 20L;
     final int FILE_SIZE_THRESHOLD = 1024 * 1024 * 5;

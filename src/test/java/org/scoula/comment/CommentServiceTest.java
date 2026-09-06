@@ -63,6 +63,19 @@ class CommentServiceTest {
         assertEquals(List.of("upload"), f.events);
     }
 
+    @Test void contentLimitUsesUnicodeCharactersAndCoversEveryWritePath() {
+        String validEmojiContent = "😀".repeat(300);
+        String tooLong = validEmojiContent + "a";
+
+        f.service.addComment(1L, 7L, validEmojiContent);
+        f.events.clear();
+
+        assertThrows(ResponseStatusException.class, () -> f.service.addComment(1L, 7L, tooLong, List.of(file)));
+        assertThrows(ResponseStatusException.class, () -> f.service.addReply(1L, 7L, tooLong));
+        assertThrows(ResponseStatusException.class, () -> f.service.updateComment(1L, 7L, tooLong));
+        assertTrue(f.events.isEmpty());
+    }
+
     @Test void imageDeletionHappensAfterDatabaseCommit() {
         f.owned = CommentFixture.comment(1L, null, CommentFixture.KEY);
         assertTrue(f.service.deleteComment(1L, 7L));

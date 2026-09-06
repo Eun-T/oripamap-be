@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 @Log4j2
 public class CommentService {
 
+    private static final int MAX_CONTENT_LENGTH = 300;
+
     private final CommentMapper commentMapper;
     private final S3ImageService s3ImageService;
     private final PlatformTransactionManager transactionManager;
@@ -58,6 +60,7 @@ public class CommentService {
         if (content == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "댓글 내용을 입력해 주세요.");
         }
+        validateContentLength(content);
         String imageKey = files.isEmpty() ? null : s3ImageService.upload(files.get(0));
         // UNKNOWN(커밋 결과 불명)일 때는 저장된 댓글의 이미지를 잘못 삭제하지 않는다.
         int[] completion = {TransactionSynchronization.STATUS_ROLLED_BACK};
@@ -93,6 +96,7 @@ public class CommentService {
     }
 
     public boolean updateComment(Long commentId, Long userId, String content) {
+        validateContentLength(content);
         return commentMapper.updateComment(commentId, userId, content) > 0;
     }
 
@@ -107,7 +111,14 @@ public class CommentService {
         if (content == null || content.isBlank()) {
             return false;
         }
+        validateContentLength(content);
         return commentMapper.insertReply(parentCommentId, userId, content) > 0;
+    }
+
+    private void validateContentLength(String content) {
+        if (content != null && content.codePointCount(0, content.length()) > MAX_CONTENT_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "댓글은 300자 이하로 입력해 주세요.");
+        }
     }
 
     public boolean deleteComment(Long commentId, Long userId) {

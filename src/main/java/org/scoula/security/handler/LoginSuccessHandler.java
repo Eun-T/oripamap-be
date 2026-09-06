@@ -23,6 +23,7 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
     private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(7);
 
     private final JwtProcessor jwtProcessor;
+    private final JwtCookieUtil jwtCookieUtil;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -32,7 +33,7 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
                 JwtUsernamePasswordAuthenticationFilter.REMEMBER_ME_ATTRIBUTE));
         Duration loginDuration = rememberMe ? REMEMBER_ME_DURATION : DEFAULT_LOGIN_DURATION;
         String token = jwtProcessor.generateToken(user.getMember().getId(), loginDuration);
-        JwtCookieUtil.addAccessTokenCookie(response, token, loginDuration);
+        jwtCookieUtil.addAccessTokenCookie(response, token, loginDuration);
         JsonResponse.send(response, UserInfoDTO.of(user.getMember()));
     }
 }
