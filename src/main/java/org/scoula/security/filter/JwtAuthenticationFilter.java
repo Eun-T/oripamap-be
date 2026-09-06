@@ -33,7 +33,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return "/api/auth/login".equals(path)
                 || "/api/auth/logout".equals(path)
                 || path.startsWith("/api/auth/kakao/")
-                || "/api/auth/kakao".equals(path);
+                || "/api/auth/kakao".equals(path)
+                || path.startsWith("/api/auth/naver/")
+                || "/api/auth/naver".equals(path);
     }
 
     public Authentication getAuthentication(String token) {
