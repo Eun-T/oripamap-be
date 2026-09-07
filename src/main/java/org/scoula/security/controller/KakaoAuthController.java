@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.scoula.member.exception.EmailAlreadyExistsException;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.service.SocialAccountRegistrationService;
@@ -150,11 +151,13 @@ public class KakaoAuthController {
                     .build();
         } catch (ResponseStatusException e) {
             throw e;
+        } catch (EmailAlreadyExistsException e) {
+            throw e;
         } catch (HttpStatusCodeException e) {
             logKakaoApiError("로그인 처리", e);
             throw kakaoLoginException(e);
         } catch (Exception e) {
-            log.error("카카오 로그인 처리 중 오류가 발생했습니다.", e);
+            log.error("카카오 로그인 처리 중 오류가 발생했습니다.");
             throw kakaoLoginException(e);
         }
     }
@@ -203,11 +206,7 @@ public class KakaoAuthController {
     }
 
     private void logKakaoApiError(String stage, HttpStatusCodeException e) {
-        String detail = e.getResponseBodyAsString();
-        if (detail == null || detail.isBlank()) {
-            detail = "응답 본문 없음";
-        }
-        log.warn("카카오 {} 실패: HTTP {}, 응답={}", stage, e.getRawStatusCode(), detail);
+        log.warn("카카오 {} 실패: HTTP {}", stage, e.getRawStatusCode());
     }
 
     private ResponseStatusException kakaoLoginException(Exception cause) {

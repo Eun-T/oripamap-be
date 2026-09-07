@@ -2,6 +2,7 @@ package org.scoula.security.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.scoula.member.exception.EmailAlreadyExistsException;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.springframework.dao.DuplicateKeyException;
@@ -20,6 +21,9 @@ public class SocialAccountRegistrationService {
         } catch (DuplicateKeyException e) {
             MemberVO existingMember = findSameSocialAccount(newMember);
             if (existingMember == null) {
+                if (memberMapper.existsByEmail(newMember.getEmail())) {
+                    throw new EmailAlreadyExistsException(e);
+                }
                 throw e;
             }
 

@@ -6,6 +6,7 @@ import org.scoula.member.dto.ChangePasswordDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
+import org.scoula.member.exception.EmailAlreadyExistsException;
 import org.scoula.member.service.MemberService;
 import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.ResponseEntity;
@@ -40,7 +41,7 @@ public class MemberController {
             return ResponseEntity.badRequest().build();
         }
         if (service.existsByEmail(member.getEmail())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            throw new EmailAlreadyExistsException();
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(service.join(member));
     }

@@ -6,9 +6,12 @@ import org.scoula.member.dto.ChangePasswordDTO;
 import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
+import org.scoula.member.exception.EmailAlreadyExistsException;
 import org.scoula.member.exception.PasswordMissmatchException;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
+import org.scoula.security.refresh.service.RefreshTokenService;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +25,7 @@ public class MemberServiceImpl  implements MemberService {
 
     final PasswordEncoder passwordEncoder;
     final MemberMapper mapper;
+    final RefreshTokenService refreshTokenService;
 
     @Override
     public boolean existsByEmail(String email) {
@@ -40,7 +44,11 @@ public class MemberServiceImpl  implements MemberService {
     public MemberDTO join(MemberJoinDTO dto) {
         MemberVO member = dto.toVO();
         member.setPassword(passwordEncoder.encode(member.getPassword())); // 비밀번호 암호화
-        mapper.insert(member);
+        try {
+            mapper.insert(member);
+        } catch (DuplicateKeyException e) {
+            throw new EmailAlreadyExistsException(e);
+        }
         return get(member.getEmail());
     }
 
@@ -51,10 +59,15 @@ public class MemberServiceImpl  implements MemberService {
             throw new PasswordMissmatchException();
         }
         member.setUsername(authenticatedUsername);
-        mapper.update(member.toVO());
+        try {
+            mapper.update(member.toVO());
+        } catch (DuplicateKeyException e) {
+            throw new EmailAlreadyExistsException(e);
+        }
         return get(member.getEmail());
     }
 
+    @Transactional
     @Override
     public void changePassword(String authenticatedUsername, ChangePasswordDTO changePassword) {
         MemberVO member = mapper.get(authenticatedUsername);
@@ -67,6 +80,7 @@ public class MemberServiceImpl  implements MemberService {
         changePassword.setNewPassword(passwordEncoder.encode(changePassword.getNewPassword()));
 
         mapper.updatePassword(changePassword);
+        refreshTokenService.revokeAllByUserId(member.getId());
     }
 
 

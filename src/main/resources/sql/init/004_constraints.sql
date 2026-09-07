@@ -4,6 +4,8 @@ USE oripa;
 -- UNIQUE CONSTRAINTS
 -- ============================================================
 ALTER TABLE users
+    ADD CONSTRAINT uk_users_email
+        UNIQUE (email),
     ADD CONSTRAINT uk_users_provider
         UNIQUE (provider, provider_id);
 
@@ -11,10 +13,18 @@ ALTER TABLE favorites
     ADD CONSTRAINT uk_favorites_user_place
         UNIQUE (user_id, place_id);
 
+ALTER TABLE refresh_tokens
+    ADD CONSTRAINT uk_refresh_tokens_hash
+        UNIQUE (token_hash);
+
 
 -- ============================================================
 -- FOREIGN KEY CONSTRAINTS
 -- ============================================================
+ALTER TABLE refresh_tokens
+    ADD CONSTRAINT fk_refresh_tokens_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
 ALTER TABLE place_images
     ADD CONSTRAINT fk_place_images_place
         FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE,

@@ -20,7 +20,7 @@ USE oripa;
 CREATE TABLE users (
                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
 
-                       email VARCHAR(100),
+                       email VARCHAR(100) NOT NULL,
                        password VARCHAR(255),
                        nickname VARCHAR(50) NOT NULL,
 
@@ -34,6 +34,15 @@ CREATE TABLE users (
 
                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                            ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE refresh_tokens (
+                                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                user_id BIGINT NOT NULL,
+                                token_hash CHAR(64) NOT NULL,
+                                expires_at DATETIME NOT NULL,
+                                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                revoked_at DATETIME NULL
 );
 
 

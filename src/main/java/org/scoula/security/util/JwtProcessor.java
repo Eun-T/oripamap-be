@@ -43,7 +43,7 @@ public class JwtProcessor {
         return generateToken(userId, Duration.ofMillis(TOKEN_VALID_MILISECOND));
     }
 
-    public String generateToken(Long userId, Duration validity) {
+    String generateToken(Long userId, Duration validity) {
         Date issuedAt = new Date();
         return Jwts.builder()
                 .setSubject(String.valueOf(userId))

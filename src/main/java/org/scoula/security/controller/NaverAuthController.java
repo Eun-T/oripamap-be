@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.scoula.member.exception.EmailAlreadyExistsException;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.service.SocialAccountRegistrationService;
@@ -151,11 +152,13 @@ public class NaverAuthController {
                     .build();
         } catch (ResponseStatusException e) {
             throw e;
+        } catch (EmailAlreadyExistsException e) {
+            throw e;
         } catch (HttpStatusCodeException e) {
             logNaverApiError("로그인 처리", e);
             throw naverLoginException(e);
         } catch (Exception e) {
-            log.error("네이버 로그인 처리 중 오류가 발생했습니다.", e);
+            log.error("네이버 로그인 처리 중 오류가 발생했습니다.");
             throw naverLoginException(e);
         }
     }
@@ -179,9 +182,8 @@ public class NaverAuthController {
         JsonNode tokenResponse = objectMapper.readTree(body);
         String accessToken = tokenResponse.path("access_token").asText();
         if (accessToken.isBlank()) {
-            String errorDescription = tokenResponse.path("error_description").asText();
-            log.warn("네이버 토큰 응답에 access_token이 없습니다: 오류={}",
-                    errorDescription.isBlank() ? "상세 정보 없음" : errorDescription);
+            log.warn("네이버 토큰 응답에 access_token이 없습니다: 오류 코드={}",
+                    safeErrorCode(tokenResponse.path("error").asText()));
             throw naverLoginException(null);
         }
         return accessToken;
@@ -203,9 +205,8 @@ public class NaverAuthController {
 
         JsonNode result = objectMapper.readTree(body);
         if (!"00".equals(result.path("resultcode").asText())) {
-            log.warn("네이버 사용자 정보 조회 실패: resultcode={}, 메시지={}",
-                    result.path("resultcode").asText(),
-                    result.path("message").asText());
+            log.warn("네이버 사용자 정보 조회 실패: resultcode={}",
+                    safeErrorCode(result.path("resultcode").asText()));
             throw naverLoginException(null);
         }
         return result;
@@ -217,11 +218,11 @@ public class NaverAuthController {
     }
 
     private void logNaverApiError(String stage, HttpStatusCodeException e) {
-        String detail = e.getResponseBodyAsString();
-        if (detail == null || detail.isBlank()) {
-            detail = "응답 본문 없음";
-        }
-        log.warn("네이버 {} 실패: HTTP {}, 응답={}", stage, e.getRawStatusCode(), detail);
+        log.warn("네이버 {} 실패: HTTP {}", stage, e.getRawStatusCode());
+    }
+
+    private String safeErrorCode(String errorCode) {
+        return errorCode != null && errorCode.matches("[A-Za-z0-9_-]{1,32}") ? errorCode : "unknown";
     }
 
     private ResponseStatusException naverLoginException(Exception cause) {

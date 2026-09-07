@@ -23,7 +23,7 @@ public final class JwtCookieUtil {
         response.addHeader(HttpHeaders.SET_COOKIE, createCookie(token, ACCESS_TOKEN_MAX_AGE).toString());
     }
 
-    public void addAccessTokenCookie(HttpServletResponse response, String token, Duration maxAge) {
+    void addAccessTokenCookie(HttpServletResponse response, String token, Duration maxAge) {
         response.addHeader(HttpHeaders.SET_COOKIE, createCookie(token, maxAge).toString());
     }
 

@@ -4,7 +4,9 @@ import lombok.extern.log4j.Log4j2;
 import org.scoula.security.account.dto.LoginDTO;
 import org.scoula.security.handler.LoginFailureHandler;
 import org.scoula.security.handler.LoginSuccessHandler;
+import org.scoula.security.service.LoginRateLimiter;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -22,13 +24,18 @@ import javax.servlet.http.HttpServletResponse;
 public class JwtUsernamePasswordAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
 
     public static final String REMEMBER_ME_ATTRIBUTE = "rememberMe";
+    public static final String LOGIN_EMAIL_ATTRIBUTE = "loginEmail";
+
+    private final LoginRateLimiter loginRateLimiter;
 
     //부모생성자가 호출되어 먼저 만들어져야함. --> 부모생성자는 AuthenticationManager를 입력값으로 하는 생성자를 씀.
     //자식생성자에서 부모생성자를 가시성있게 호출해야함.
     public JwtUsernamePasswordAuthenticationFilter(AuthenticationManager authenticationManager,
                                                    LoginSuccessHandler loginSuccessHandler,
-                                                   LoginFailureHandler loginFailureHandler){
+                                                   LoginFailureHandler loginFailureHandler,
+                                                   LoginRateLimiter loginRateLimiter){
         super(authenticationManager); //맨 첫줄에 써주어야함.
+        this.loginRateLimiter = loginRateLimiter;
 
         //jwt~~필터 언제 적용할지 설정.
         setFilterProcessesUrl("/api/auth/login");
@@ -42,6 +49,10 @@ public class JwtUsernamePasswordAuthenticationFilter extends UsernamePasswordAut
         //http body로 전달할 json을 꺼내서 dto로 옮겨주어야함.
         LoginDTO login = LoginDTO.of(request);
         request.setAttribute(REMEMBER_ME_ATTRIBUTE, login.isRememberMe());
+        request.setAttribute(LOGIN_EMAIL_ATTRIBUTE, login.getEmail());
+        if (loginRateLimiter.isBlocked(request, login.getEmail())) {
+            throw new LockedException("Too many login attempts.");
+        }
 
         //인증매니저에게 id/pw 인증해달라고 요청(username/passwordtoken으로 만들어서 주어야함.)
         UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(login.getEmail(), login.getPassword());

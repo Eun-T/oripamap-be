@@ -31,6 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         return "/api/auth/login".equals(path)
+                || "/api/auth/refresh".equals(path)
                 || "/api/auth/logout".equals(path)
                 || path.startsWith("/api/auth/kakao/")
                 || "/api/auth/kakao".equals(path)

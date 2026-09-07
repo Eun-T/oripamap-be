@@ -2,6 +2,7 @@ package org.scoula.security.service;
 
 import org.junit.jupiter.api.Test;
 import org.scoula.member.dto.ChangePasswordDTO;
+import org.scoula.member.exception.EmailAlreadyExistsException;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.springframework.dao.DuplicateKeyException;
@@ -36,6 +37,18 @@ class SocialAccountRegistrationServiceTest {
     }
 
     @Test
+    void rejectsDuplicateEmailWithoutMergingDifferentAccounts() {
+        StubMemberMapper memberMapper = new StubMemberMapper();
+        memberMapper.insertException = new DuplicateKeyException("duplicate email");
+        memberMapper.emailExists = true;
+        SocialAccountRegistrationService service = new SocialAccountRegistrationService(memberMapper);
+
+        assertThrows(
+                EmailAlreadyExistsException.class,
+                () -> service.insertOrGetExisting(socialMember(null, "NAVER", "provider-id")));
+    }
+
+    @Test
     void returnsInsertedMemberAfterSuccessfulInsert() {
         MemberVO insertedMember = socialMember(2L, "NAVER", "provider-id");
         StubMemberMapper memberMapper = new StubMemberMapper();
@@ -58,6 +71,7 @@ class SocialAccountRegistrationServiceTest {
     private static class StubMemberMapper implements MemberMapper {
         private DuplicateKeyException insertException;
         private MemberVO memberToFind;
+        private boolean emailExists;
 
         @Override
         public MemberVO findByProvider(String provider, String providerId) {
@@ -79,7 +93,7 @@ class SocialAccountRegistrationServiceTest {
 
         @Override
         public boolean existsByEmail(String email) {
-            throw new UnsupportedOperationException();
+            return emailExists;
         }
 
         @Override
