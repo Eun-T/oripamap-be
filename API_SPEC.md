@@ -41,8 +41,8 @@ GET         `/api/places/search`   X           Query:      `List<PlaceResponse>`
   -----------------------------------------------------------------------------------------------------------------------------------
 Method      Endpoint                                 인증        요청                        응답                      설명
   ----------- ---------------------------------------- ----------- --------------------------- ------------------------- ------------
-GET         `/api/comments/place/{placeId}`          X           Path: `placeId`             `List<CommentResponse>`   장소 댓글 및
-답글 조회
+GET         `/api/comments/place/{placeId}`          X           Path: `placeId`, Query:     `CommentPageResponse`     부모 댓글 페이징 및
+                                                              `page=0`, `size=5`                                  해당 답글 전체 조회
 
 GET         `/api/comments/place/{placeId}/photos`   X           Path: `placeId`             `List<CommentResponse>`   사진 포함
 댓글 조회
@@ -209,6 +209,8 @@ imageUrl
 `CommentResponse`                   id, userId, parentCommentId,
 nickname, content, imageUrl,
 createdAt, updatedAt, replies
+
+`CommentPageResponse`               comments, page, size, hasNext, totalCount
 
 `EditRequestRequest`                placeId, requestTypes, memo
 

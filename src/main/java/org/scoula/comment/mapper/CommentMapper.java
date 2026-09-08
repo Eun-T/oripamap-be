@@ -8,7 +8,15 @@ import java.util.List;
 @Mapper
 public interface CommentMapper {
 
-    List<CommentVO> findByPlaceId(Long placeId);
+    List<CommentVO> findParentsByPlaceId(
+            @Param("placeId") Long placeId,
+            @Param("offset") long offset,
+            @Param("limit") int limit
+    );
+
+    List<CommentVO> findRepliesByParentIds(@Param("parentIds") List<Long> parentIds);
+
+    long countByPlaceId(@Param("placeId") Long placeId);
 
     List<CommentVO> findPhotosByPlaceId(@Param("placeId") Long placeId);
 

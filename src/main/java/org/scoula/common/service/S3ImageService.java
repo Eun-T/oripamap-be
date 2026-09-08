@@ -32,7 +32,7 @@ public class S3ImageService {
     private static final long MAX_PIXELS = 20_000_000;
     private static final Duration URL_DURATION = Duration.ofMinutes(10);
     private static final Pattern IMAGE_KEY = Pattern.compile(
-            "images/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png)");
+            "images/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png|webp)");
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
@@ -69,7 +69,7 @@ public class S3ImageService {
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(extension.equals("jpg") ? "image/jpeg" : "image/png")
+                .contentType(contentTypeFor(extension))
                 .contentLength((long) bytes.length)
                 .build();
         try {
@@ -117,13 +117,13 @@ public class S3ImageService {
                 new ByteArrayInputStream(bytes))) {
             Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
             if (!readers.hasNext()) {
-                throw badRequest("JPG 또는 PNG 이미지 파일만 업로드할 수 있습니다.");
+                throw badRequest("JPG, PNG 또는 WebP 이미지 파일만 업로드할 수 있습니다.");
             }
             ImageReader reader = readers.next();
             try {
                 String format = reader.getFormatName().toLowerCase(Locale.ROOT);
-                if (!format.equals("jpeg") && !format.equals("png")) {
-                    throw badRequest("JPG 또는 PNG 이미지 파일만 업로드할 수 있습니다.");
+                if (!format.equals("jpeg") && !format.equals("png") && !format.equals("webp")) {
+                    throw badRequest("JPG, PNG 또는 WebP 이미지 파일만 업로드할 수 있습니다.");
                 }
                 reader.setInput(input);
                 int width = reader.getWidth(0);
@@ -135,13 +135,22 @@ public class S3ImageService {
                 if (reader.read(0) == null) {
                     throw badRequest("유효한 이미지 파일이 아닙니다.");
                 }
-                return format.equals("jpeg") ? "jpg" : "png";
+                return format.equals("jpeg") ? "jpg" : format;
             } finally {
                 reader.dispose();
             }
         } catch (IOException | IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "손상되었거나 유효하지 않은 이미지입니다.", e);
         }
+    }
+
+    private String contentTypeFor(String extension) {
+        return switch (extension) {
+            case "jpg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "webp" -> "image/webp";
+            default -> throw new IllegalArgumentException("Unsupported image extension: " + extension);
+        };
     }
 
     private ResponseStatusException badRequest(String message) {

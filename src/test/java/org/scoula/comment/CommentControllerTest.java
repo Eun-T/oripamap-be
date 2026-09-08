@@ -104,6 +104,31 @@ class CommentControllerTest {
         assertFalse(response.getContentAsString().contains("\"imageKey\""));
     }
 
+    @Test void commentListDefaultsToFiveParentsAndReturnsPaginationMetadata() throws Exception {
+        f.parents = List.of(CommentFixture.comment(1L, null, null));
+        f.totalCount = 27;
+
+        var response = mvc.perform(get("/api/comments/place/1"))
+                .andReturn().getResponse();
+
+        assertEquals(200, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"comments\""));
+        assertTrue(response.getContentAsString().contains("\"page\":0"));
+        assertTrue(response.getContentAsString().contains("\"size\":5"));
+        assertTrue(response.getContentAsString().contains("\"hasNext\":false"));
+        assertTrue(response.getContentAsString().contains("\"totalCount\":27"));
+        assertEquals(0L, f.queryOffset);
+        assertEquals(6, f.queryLimit);
+    }
+
+    @Test void commentListAcceptsNextPageParameters() throws Exception {
+        assertEquals(200, mvc.perform(get("/api/comments/place/1")
+                .param("page", "1").param("size", "5"))
+                .andReturn().getResponse().getStatus());
+        assertEquals(5L, f.queryOffset);
+        assertEquals(6, f.queryLimit);
+    }
+
     @Test void updateAndDeleteKeepExistingStatuses() throws Exception {
         assertEquals(204, mvc.perform(put("/api/comments/1").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"content\":\"edited\"}")).andReturn().getResponse().getStatus());

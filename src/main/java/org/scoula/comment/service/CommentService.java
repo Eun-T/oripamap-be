@@ -3,6 +3,7 @@ package org.scoula.comment.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.common.service.S3ImageService;
+import org.scoula.comment.dto.CommentPageResponse;
 import org.scoula.comment.dto.CommentResponse;
 import org.scoula.comment.mapper.CommentMapper;
 import org.scoula.comment.vo.CommentVO;
@@ -27,25 +28,46 @@ import java.util.stream.Collectors;
 public class CommentService {
 
     private static final int MAX_CONTENT_LENGTH = 300;
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final CommentMapper commentMapper;
     private final S3ImageService s3ImageService;
     private final PlatformTransactionManager transactionManager;
 
-    public List<CommentResponse> getComments(Long placeId) {
-        List<CommentVO> comments = commentMapper.findByPlaceId(placeId);
-        Map<Long, List<CommentResponse>> repliesByParent = comments.stream()
-                .filter(comment -> comment.getParentCommentId() != null)
+    public CommentPageResponse getComments(Long placeId, int page, int size) {
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "page는 0 이상, size는 1 이상 100 이하여야 합니다.");
+        }
+
+        long offset = (long) page * size;
+        List<CommentVO> fetchedParents = commentMapper.findParentsByPlaceId(placeId, offset, size + 1);
+        boolean hasNext = fetchedParents.size() > size;
+        List<CommentVO> parents = fetchedParents.stream().limit(size).toList();
+        List<Long> parentIds = parents.stream().map(CommentVO::getId).toList();
+        List<CommentVO> replies = parentIds.isEmpty()
+                ? Collections.emptyList()
+                : commentMapper.findRepliesByParentIds(parentIds);
+        long totalCount = commentMapper.countByPlaceId(placeId);
+
+        Map<Long, List<CommentResponse>> repliesByParent = replies.stream()
                 .collect(Collectors.groupingBy(
                         CommentVO::getParentCommentId,
                         Collectors.mapping(this::toResponse, Collectors.toList())
                 ));
 
-        return comments.stream()
-                .filter(comment -> comment.getParentCommentId() == null)
+        List<CommentResponse> comments = parents.stream()
                 .map(comment -> toResponse(comment,
                         repliesByParent.getOrDefault(comment.getId(), Collections.emptyList())))
                 .toList();
+
+        return CommentPageResponse.builder()
+                .comments(comments)
+                .page(page)
+                .size(size)
+                .hasNext(hasNext)
+                .totalCount(totalCount)
+                .build();
     }
 
     public void addComment(Long placeId, Long userId, String content) {

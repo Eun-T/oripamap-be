@@ -1,6 +1,7 @@
 package org.scoula.comment.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.scoula.comment.dto.CommentPageResponse;
 import org.scoula.comment.dto.CommentRequest;
 import org.scoula.comment.dto.CommentResponse;
 import org.scoula.comment.service.CommentService;
@@ -25,10 +26,12 @@ public class CommentController {
 
     // 댓글 목록
     @GetMapping("/place/{placeId}")
-    public List<CommentResponse> getComments(
-            @PathVariable Long placeId
+    public CommentPageResponse getComments(
+            @PathVariable Long placeId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size
     ) {
-        return commentService.getComments(placeId);
+        return commentService.getComments(placeId, page, size);
     }
 
     @GetMapping("/place/{placeId}/photos")

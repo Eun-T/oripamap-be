@@ -118,15 +118,56 @@ class CommentServiceTest {
     }
 
     @Test void commentsKeepReplyTreeAndSignOnlyAttachedImages() {
-        f.comments = List.of(CommentFixture.comment(1L, null, CommentFixture.KEY),
-                CommentFixture.comment(2L, 1L, null), CommentFixture.comment(3L, null, null));
-        var result = f.service.getComments(1L);
-        assertEquals(2, result.size());
-        assertNotNull(result.get(0).getImageUrl());
-        assertEquals(2L, result.get(0).getReplies().get(0).getId());
-        assertNull(result.get(0).getReplies().get(0).getImageUrl());
-        assertNull(result.get(1).getImageUrl());
-        assertEquals(List.of("sign"), f.events);
+        f.parents = List.of(CommentFixture.comment(1L, null, CommentFixture.KEY),
+                CommentFixture.comment(3L, null, null));
+        f.replies = List.of(CommentFixture.comment(2L, 1L, null));
+        f.totalCount = 3;
+        var result = f.service.getComments(1L, 0, 5);
+        assertEquals(2, result.getComments().size());
+        assertNotNull(result.getComments().get(0).getImageUrl());
+        assertEquals(2L, result.getComments().get(0).getReplies().get(0).getId());
+        assertNull(result.getComments().get(0).getReplies().get(0).getImageUrl());
+        assertNull(result.getComments().get(1).getImageUrl());
+        assertFalse(result.isHasNext());
+        assertEquals(3, result.getTotalCount());
+        assertEquals(List.of(1L, 3L), f.queriedParentIds);
+        assertEquals(List.of("parents-query", "replies-query", "count-query", "sign"), f.events);
+    }
+
+    @Test void parentPaginationUsesExtraRowForHasNextAndFetchesOnlyVisibleReplies() {
+        f.parents = List.of(
+                CommentFixture.comment(10L, null, null),
+                CommentFixture.comment(9L, null, null),
+                CommentFixture.comment(8L, null, null),
+                CommentFixture.comment(7L, null, null),
+                CommentFixture.comment(6L, null, null),
+                CommentFixture.comment(5L, null, null));
+
+        var result = f.service.getComments(1L, 2, 5);
+
+        assertEquals(5, result.getComments().size());
+        assertTrue(result.isHasNext());
+        assertEquals(2, result.getPage());
+        assertEquals(5, result.getSize());
+        assertEquals(10L, f.queryOffset);
+        assertEquals(6, f.queryLimit);
+        assertEquals(List.of(10L, 9L, 8L, 7L, 6L), f.queriedParentIds);
+    }
+
+    @Test void emptyParentPageDoesNotRunReplyQuery() {
+        f.totalCount = 27;
+        var result = f.service.getComments(1L, 0, 5);
+        assertTrue(result.getComments().isEmpty());
+        assertFalse(result.isHasNext());
+        assertEquals(27, result.getTotalCount());
+        assertEquals(List.of("parents-query", "count-query"), f.events);
+    }
+
+    @Test void invalidPaginationIsRejectedBeforeQuery() {
+        assertThrows(ResponseStatusException.class, () -> f.service.getComments(1L, -1, 5));
+        assertThrows(ResponseStatusException.class, () -> f.service.getComments(1L, 0, 0));
+        assertThrows(ResponseStatusException.class, () -> f.service.getComments(1L, 0, 101));
+        assertTrue(f.events.isEmpty());
     }
 
     @Test void visitorPhotosIncludeFreshUrls() {

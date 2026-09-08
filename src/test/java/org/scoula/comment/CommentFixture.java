@@ -24,8 +24,13 @@ class CommentFixture {
     boolean failDbDelete;
     int inserted = 1;
     CommentVO owned;
-    List<CommentVO> comments = List.of();
+    List<CommentVO> parents = List.of();
+    List<CommentVO> replies = List.of();
     List<CommentVO> photos = List.of();
+    List<Long> queriedParentIds = List.of();
+    long queryOffset;
+    int queryLimit;
+    long totalCount;
     Object[] insertArgs;
 
     final CommentMapper mapper = (CommentMapper) Proxy.newProxyInstance(
@@ -43,7 +48,18 @@ class CommentFixture {
                         events.add("db-delete");
                         if (failDbDelete) throw new IllegalStateException("DB delete failed");
                         return 1;
-                    case "findByPlaceId": return comments;
+                    case "findParentsByPlaceId":
+                        events.add("parents-query");
+                        queryOffset = (long) args[1];
+                        queryLimit = (int) args[2];
+                        return parents;
+                    case "findRepliesByParentIds":
+                        events.add("replies-query");
+                        queriedParentIds = (List<Long>) args[0];
+                        return replies;
+                    case "countByPlaceId":
+                        events.add("count-query");
+                        return totalCount;
                     case "findPhotosByPlaceId": return photos;
                     default: throw new UnsupportedOperationException(method.getName());
                 }
