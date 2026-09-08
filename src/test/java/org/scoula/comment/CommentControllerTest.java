@@ -41,16 +41,31 @@ class CommentControllerTest {
 
     @Test void originalJsonCommentAndReplyStillReturn201() throws Exception {
         for (String path : List.of("/api/comments/place/1", "/api/comments/1/replies")) {
-            assertEquals(201, mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"content\":\"hello\"}")).andReturn().getResponse().getStatus());
+            var response = mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"content\":\"hello\"}")).andReturn().getResponse();
+            assertEquals(201, response.getStatus());
+            assertTrue(response.getContentAsString().contains("\"id\":"));
+            assertTrue(response.getContentAsString().contains("\"userId\":7"));
+            assertTrue(response.getContentAsString().contains("\"nickname\":\"database-user\""));
+            assertTrue(response.getContentAsString().contains("\"content\":\"hello\""));
+            assertTrue(response.getContentAsString().contains("\"createdAt\""));
+            assertTrue(response.getContentAsString().contains("\"replies\":[]"));
+            assertFalse(response.getContentAsString().contains("imageKey"));
+            if (path.endsWith("/replies")) {
+                assertTrue(response.getContentAsString().contains("\"parentCommentId\":1"));
+            }
         }
         assertNull(f.insertArgs[3]);
         assertFalse(f.events.contains("upload"));
     }
 
     @Test void multipartImageCommentReturns201AndStoresKey() throws Exception {
-        assertEquals(201, mvc.perform(multipart("/api/comments/place/1")
-                .file(file("file")).param("content", "photo")).andReturn().getResponse().getStatus());
+        var response = mvc.perform(multipart("/api/comments/place/1")
+                .file(file("file")).param("content", "photo")).andReturn().getResponse();
+        assertEquals(201, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"id\":100"));
+        assertTrue(response.getContentAsString().contains("\"imageUrl\":\"https://"));
+        assertFalse(response.getContentAsString().contains("imageKey"));
         assertEquals(CommentFixture.KEY, f.insertArgs[3]);
     }
 

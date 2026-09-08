@@ -70,11 +70,11 @@ public class CommentService {
                 .build();
     }
 
-    public void addComment(Long placeId, Long userId, String content) {
-        addComment(placeId, userId, content, Collections.emptyList());
+    public CommentResponse addComment(Long placeId, Long userId, String content) {
+        return addComment(placeId, userId, content, Collections.emptyList());
     }
 
-    public void addComment(Long placeId, Long userId, String content, List<MultipartFile> files) {
+    public CommentResponse addComment(Long placeId, Long userId, String content, List<MultipartFile> files) {
         if (files.size() > 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "댓글 이미지는 최대 1장만 첨부할 수 있습니다.");
         }
@@ -84,19 +84,30 @@ public class CommentService {
         }
         validateContentLength(content);
         String imageKey = files.isEmpty() ? null : s3ImageService.upload(files.get(0));
+        CommentVO comment = new CommentVO();
+        comment.setPlaceId(placeId);
+        comment.setUserId(userId);
+        comment.setContent(content);
+        comment.setImageKey(imageKey);
         // UNKNOWN(커밋 결과 불명)일 때는 저장된 댓글의 이미지를 잘못 삭제하지 않는다.
         int[] completion = {TransactionSynchronization.STATUS_ROLLED_BACK};
+        CommentVO created;
         try {
-            transaction().executeWithoutResult(status -> {
+            created = transaction().execute(status -> {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCompletion(int result) {
                         completion[0] = result;
                     }
                 });
-                if (commentMapper.insertComment(placeId, userId, content, imageKey) != 1) {
+                if (commentMapper.insertComment(comment) != 1 || comment.getId() == null) {
                     throw new IllegalStateException("댓글 저장에 실패했습니다.");
                 }
+                CommentVO saved = commentMapper.findById(comment.getId());
+                if (saved == null) {
+                    throw new IllegalStateException("생성된 댓글을 조회할 수 없습니다.");
+                }
+                return saved;
             });
         } catch (RuntimeException e) {
             if (imageKey != null && completion[0] == TransactionSynchronization.STATUS_ROLLED_BACK) {
@@ -111,6 +122,7 @@ public class CommentService {
             }
             throw e;
         }
+        return toResponse(created);
     }
 
     public List<CommentResponse> getPhotos(Long placeId) {
@@ -122,19 +134,33 @@ public class CommentService {
         return commentMapper.updateComment(commentId, userId, content) > 0;
     }
 
-    public boolean addReply(Long parentCommentId, Long userId, String content) {
+    public CommentResponse addReply(Long parentCommentId, Long userId, String content) {
         return addReply(parentCommentId, userId, content, Collections.emptyList());
     }
 
-    public boolean addReply(Long parentCommentId, Long userId, String content, List<MultipartFile> files) {
+    public CommentResponse addReply(Long parentCommentId, Long userId, String content, List<MultipartFile> files) {
         if (!files.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "답글에는 이미지를 첨부할 수 없습니다.");
         }
         if (content == null || content.isBlank()) {
-            return false;
+            return null;
         }
         validateContentLength(content);
-        return commentMapper.insertReply(parentCommentId, userId, content) > 0;
+        CommentVO reply = new CommentVO();
+        reply.setParentCommentId(parentCommentId);
+        reply.setUserId(userId);
+        reply.setContent(content);
+        CommentVO created = transaction().execute(status -> {
+            if (commentMapper.insertReply(reply) != 1 || reply.getId() == null) {
+                return null;
+            }
+            CommentVO saved = commentMapper.findById(reply.getId());
+            if (saved == null) {
+                throw new IllegalStateException("생성된 대댓글을 조회할 수 없습니다.");
+            }
+            return saved;
+        });
+        return created == null ? null : toResponse(created);
     }
 
     private void validateContentLength(String content) {

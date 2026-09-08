@@ -153,3 +153,33 @@ CREATE TABLE edit_requests (
 
                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE oripa_place (
+                             place_id BIGINT PRIMARY KEY,
+                             summary VARCHAR(255) NULL,
+                             introduction TEXT NULL,
+                             social_links JSON NULL,
+
+                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                                 ON UPDATE CURRENT_TIMESTAMP,
+
+                             CONSTRAINT fk_oripa_place
+                                 FOREIGN KEY (place_id)
+                                     REFERENCES places(id)
+                                     ON DELETE CASCADE
+);
+
+CREATE TABLE oripa_place_images (
+                                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                    place_id BIGINT NOT NULL,
+                                    image_key VARCHAR(500) NOT NULL,
+                                    sort_order INT NOT NULL DEFAULT 0,
+
+                                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+                                    CONSTRAINT fk_oripa_place_images
+                                        FOREIGN KEY (place_id)
+                                            REFERENCES oripa_place(place_id)
+                                            ON DELETE CASCADE
+);

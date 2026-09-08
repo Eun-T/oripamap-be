@@ -20,14 +20,11 @@ public interface CommentMapper {
 
     List<CommentVO> findPhotosByPlaceId(@Param("placeId") Long placeId);
 
+    CommentVO findById(@Param("commentId") Long commentId);
+
     CommentVO findOwnedByIdForUpdate(@Param("commentId") Long commentId, @Param("userId") Long userId);
 
-    int insertComment(
-            @Param("placeId") Long placeId,
-            @Param("userId") Long userId,
-            @Param("content") String content,
-            @Param("imageKey") String imageKey
-    );
+    int insertComment(CommentVO comment);
 
     int updateComment(
             @Param("commentId") Long commentId,
@@ -35,11 +32,7 @@ public interface CommentMapper {
             @Param("content") String content
     );
 
-    int insertReply(
-            @Param("parentCommentId") Long parentCommentId,
-            @Param("userId") Long userId,
-            @Param("content") String content
-    );
+    int insertReply(CommentVO comment);
 
     int deleteComment(
             @Param("commentId") Long commentId,

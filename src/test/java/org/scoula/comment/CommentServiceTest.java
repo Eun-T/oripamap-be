@@ -15,13 +15,13 @@ class CommentServiceTest {
     @Test void textCommentStoresNullAndDoesNotCallS3() {
         f.service.addComment(1L, 7L, "text");
         assertNull(f.insertArgs[3]);
-        assertEquals(List.of("begin", "insert", "commit"), f.events);
+        assertEquals(List.of("begin", "insert", "created-query", "commit"), f.events);
     }
 
     @Test void imageCommentStoresOnlyKeyAfterUpload() {
         f.service.addComment(1L, 7L, "text", List.of(file));
         assertEquals(CommentFixture.KEY, f.insertArgs[3]);
-        assertEquals(List.of("upload", "begin", "insert", "commit"), f.events);
+        assertEquals(List.of("upload", "begin", "insert", "created-query", "commit", "sign"), f.events);
     }
 
     @Test void multipleImagesAndReplyImageAreRejectedBeforeSideEffects() {
@@ -110,7 +110,7 @@ class CommentServiceTest {
     }
 
     @Test void textReplyUpdateAndDeleteKeepWorkingWithoutS3() {
-        assertTrue(f.service.addReply(1L, 7L, "reply"));
+        assertNotNull(f.service.addReply(1L, 7L, "reply"));
         assertTrue(f.service.updateComment(1L, 7L, "edited"));
         f.owned = CommentFixture.comment(2L, 1L, null);
         assertTrue(f.service.deleteComment(2L, 7L));

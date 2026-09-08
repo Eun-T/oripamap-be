@@ -41,7 +41,7 @@
     </select>
 
     <!-- 댓글 작성 -->
-    <insert id="insertComment">
+    <insert id="insertComment" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
 
         INSERT INTO comments (
         place_id,
@@ -57,6 +57,16 @@
         )
 
     </insert>
+
+    <select id="findById" resultType="org.scoula.comment.vo.CommentVO">
+        SELECT c.id, c.place_id AS placeId, c.user_id AS userId,
+               c.parent_comment_id AS parentCommentId, c.content,
+               c.image_key AS imageKey, u.nickname,
+               c.created_at AS createdAt, c.updated_at AS updatedAt
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.id = #{commentId}
+    </select>
 
     <select id="findPhotosByPlaceId" resultType="org.scoula.comment.vo.CommentVO">
         SELECT c.id, c.place_id AS placeId, c.user_id AS userId,
@@ -78,7 +88,7 @@
         FOR UPDATE
     </select>
 
-    <insert id="insertReply">
+    <insert id="insertReply" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
         INSERT INTO comments (
             place_id,
             user_id,

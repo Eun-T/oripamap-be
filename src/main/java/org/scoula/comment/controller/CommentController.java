@@ -41,32 +41,33 @@ public class CommentController {
 
     // 기존 JSON 댓글 작성
     @PostMapping(value = "/place/{placeId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> addComment(
+    public ResponseEntity<CommentResponse> addComment(
             @PathVariable Long placeId,
             @RequestBody CommentRequest request,
             @AuthenticationPrincipal CustomUser user
     ) {
-        commentService.addComment(
+        CommentResponse created = commentService.addComment(
                 placeId,
                 user.getMember().getId(),
                 request.getContent()
         );
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PostMapping(value = "/place/{placeId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> addCommentWithImage(
+    public ResponseEntity<CommentResponse> addCommentWithImage(
             @PathVariable Long placeId,
             @RequestParam(value = "content", required = false) String content,
             MultipartHttpServletRequest request,
             @AuthenticationPrincipal CustomUser user) {
-        commentService.addComment(placeId, user.getMember().getId(), content, files(request));
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        CommentResponse created = commentService.addComment(
+                placeId, user.getMember().getId(), content, files(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     // 답글 작성
     @PostMapping(value = "/{commentId}/replies", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> addReply(
+    public ResponseEntity<CommentResponse> addReply(
             @PathVariable Long commentId,
             @RequestBody CommentRequest request,
             @AuthenticationPrincipal CustomUser user
@@ -74,13 +75,13 @@ public class CommentController {
         if (request.getContent() == null || request.getContent().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        boolean created = commentService.addReply(
+        CommentResponse created = commentService.addReply(
                 commentId,
                 user.getMember().getId(),
                 request.getContent().trim()
         );
-        return created
-                ? ResponseEntity.status(HttpStatus.CREATED).build()
+        return created != null
+                ? ResponseEntity.status(HttpStatus.CREATED).body(created)
                 : ResponseEntity.badRequest().build();
     }
 
@@ -104,14 +105,16 @@ public class CommentController {
     }
 
     @PostMapping(value = "/{commentId}/replies", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> addReplyMultipart(
+    public ResponseEntity<CommentResponse> addReplyMultipart(
             @PathVariable Long commentId,
             @RequestParam(value = "content", required = false) String content,
             MultipartHttpServletRequest request,
             @AuthenticationPrincipal CustomUser user) {
-        boolean created = commentService.addReply(commentId, user.getMember().getId(),
+        CommentResponse created = commentService.addReply(commentId, user.getMember().getId(),
                 content == null ? null : content.trim(), files(request));
-        return created ? ResponseEntity.status(HttpStatus.CREATED).build() : ResponseEntity.badRequest().build();
+        return created != null
+                ? ResponseEntity.status(HttpStatus.CREATED).body(created)
+                : ResponseEntity.badRequest().build();
     }
 
     private List<MultipartFile> files(MultipartHttpServletRequest request) {

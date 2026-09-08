@@ -11,6 +11,7 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.lang.reflect.Proxy;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,16 +33,31 @@ class CommentFixture {
     int queryLimit;
     long totalCount;
     Object[] insertArgs;
+    CommentVO created;
 
     final CommentMapper mapper = (CommentMapper) Proxy.newProxyInstance(
             CommentMapper.class.getClassLoader(), new Class<?>[]{CommentMapper.class}, (proxy, method, args) -> {
                 switch (method.getName()) {
                     case "insertComment":
                         events.add("insert");
-                        insertArgs = args;
+                        CommentVO comment = (CommentVO) args[0];
+                        insertArgs = new Object[]{comment.getPlaceId(), comment.getUserId(),
+                                comment.getContent(), comment.getImageKey()};
                         if (insertFailure != null) throw insertFailure;
+                        if (inserted == 1) {
+                            comment.setId(100L);
+                            created = savedComment(comment);
+                        }
                         return inserted;
-                    case "insertReply": events.add("reply"); return 1;
+                    case "insertReply":
+                        events.add("reply");
+                        CommentVO reply = (CommentVO) args[0];
+                        reply.setId(101L);
+                        created = savedComment(reply);
+                        return 1;
+                    case "findById":
+                        events.add("created-query");
+                        return created;
                     case "updateComment": events.add("update"); return 1;
                     case "findOwnedByIdForUpdate": return owned;
                     case "deleteComment":
@@ -101,5 +117,19 @@ class CommentFixture {
         vo.setImageKey(key);
         vo.setContent("기존 댓글");
         return vo;
+    }
+
+    private static CommentVO savedComment(CommentVO source) {
+        CommentVO saved = new CommentVO();
+        saved.setId(source.getId());
+        saved.setPlaceId(source.getPlaceId());
+        saved.setUserId(source.getUserId());
+        saved.setParentCommentId(source.getParentCommentId());
+        saved.setContent(source.getContent());
+        saved.setImageKey(source.getImageKey());
+        saved.setNickname("database-user");
+        saved.setCreatedAt(LocalDateTime.of(2026, 9, 8, 12, 34, 56));
+        saved.setUpdatedAt(saved.getCreatedAt());
+        return saved;
     }
 }
