@@ -29,6 +29,11 @@ CREATE TABLE users (
 
                        provider_id VARCHAR(255),
 
+                       role ENUM('USER', 'OWNER', 'ADMIN')
+                           NOT NULL DEFAULT 'USER',
+
+                       place_id BIGINT NULL,
+
 
                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 

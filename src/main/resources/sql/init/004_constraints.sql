@@ -7,7 +7,11 @@ ALTER TABLE users
     ADD CONSTRAINT uk_users_email
         UNIQUE (email),
     ADD CONSTRAINT uk_users_provider
-        UNIQUE (provider, provider_id);
+        UNIQUE (provider, provider_id),
+    ADD CONSTRAINT fk_users_place
+        FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE SET NULL,
+    ADD CONSTRAINT chk_users_place_role
+        CHECK (role = 'OWNER' OR place_id IS NULL);
 
 ALTER TABLE favorites
     ADD CONSTRAINT uk_favorites_user_place

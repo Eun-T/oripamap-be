@@ -3,6 +3,9 @@ USE oripa;
 CREATE INDEX idx_refresh_tokens_user
     ON refresh_tokens(user_id);
 
+CREATE INDEX idx_users_place
+    ON users(place_id);
+
 -- ============================================================
 -- PLACES
 -- ============================================================

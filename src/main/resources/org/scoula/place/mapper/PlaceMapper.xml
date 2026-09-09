@@ -3,6 +3,48 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.scoula.place.mapper.PlaceMapper">
+    <insert id="upsertOripa">
+        INSERT INTO oripa_place (place_id, summary, introduction, social_links)
+        VALUES (#{placeId}, #{summary}, #{introduction}, #{socialLinks})
+        ON DUPLICATE KEY UPDATE summary = VALUES(summary),
+            introduction = VALUES(introduction), social_links = VALUES(social_links)
+    </insert>
+    <insert id="insertOripaImage">
+        INSERT INTO oripa_place_images (place_id, image_key, sort_order)
+        VALUES (#{placeId}, #{imageKey}, #{sortOrder})
+    </insert>
+    <update id="updateOripaImageOrder">
+        UPDATE oripa_place_images SET sort_order = #{sortOrder}
+        WHERE place_id = #{placeId} AND id = #{id}
+    </update>
+    <delete id="deleteOripaImage">
+        DELETE FROM oripa_place_images WHERE place_id = #{placeId} AND id = #{id}
+    </delete>
+    <select id="findById" resultType="org.scoula.place.vo.PlaceVO">
+        SELECT p.*,
+               (SELECT pi.image_url FROM place_images pi WHERE pi.place_id = p.id
+                ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS imageUrl
+        FROM places p WHERE p.id = #{id}
+    </select>
+
+    <select id="findIdForUpdate" resultType="java.lang.Long">
+        SELECT id FROM places WHERE id = #{id} FOR UPDATE
+    </select>
+
+    <select id="findOripaByPlaceId" resultType="org.scoula.place.vo.OripaPlaceVO">
+        SELECT place_id, summary, introduction, social_links
+        FROM oripa_place WHERE place_id = #{placeId}
+    </select>
+
+    <select id="findOripaImagesByPlaceId" resultType="org.scoula.place.vo.OripaPlaceImageVO">
+        SELECT id, image_key, sort_order FROM oripa_place_images
+        WHERE place_id = #{placeId}
+        ORDER BY sort_order ASC, id ASC
+    </select>
+
+    <delete id="deletePlace">
+        DELETE FROM places WHERE id = #{id}
+    </delete>
     <select id="findAll" resultType="org.scoula.place.vo.PlaceVO">
         SELECT
             p.id,

@@ -16,6 +16,8 @@
         <result property="nickname" column="nickname" />
         <result property="provider" column="provider" />
         <result property="providerId" column="provider_id" />
+        <result property="role" column="role" />
+        <result property="placeId" column="place_id" />
         <result property="regDate" column="created_at" />
         <result property="updateDate" column="updated_at" />
         <collection property="authList" resultMap="authMap" />
@@ -23,7 +25,8 @@
 
     <select id="get" resultMap="memberMap">
         SELECT id, email, password, nickname, provider, provider_id,
-               created_at, updated_at, 'ROLE_MEMBER' AS auth
+               role, place_id, created_at, updated_at,
+               CONCAT('ROLE_', role) AS auth
         FROM users
         WHERE email = #{email}
           AND provider = 'LOCAL'
@@ -38,8 +41,8 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO users (email, password, nickname, provider)
-        VALUES (#{email}, #{password}, #{nickname}, 'LOCAL')
+        INSERT INTO users (email, password, nickname, provider, role, place_id)
+        VALUES (#{email}, #{password}, #{nickname}, 'LOCAL', 'USER', NULL)
     </insert>
 
     <update id="update">
@@ -62,15 +65,16 @@
 
     <select id="findByProvider" resultMap="memberMap">
         SELECT id, email, password, nickname, provider, provider_id,
-               created_at, updated_at, 'ROLE_MEMBER' AS auth
+               role, place_id, created_at, updated_at,
+               CONCAT('ROLE_', role) AS auth
         FROM users
         WHERE provider = #{provider}
           AND provider_id = #{providerId}
     </select>
 
     <insert id="insertSocial" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO users (email, password, nickname, provider, provider_id)
-        VALUES (#{email}, #{password}, #{nickname}, #{provider}, #{providerId})
+        INSERT INTO users (email, password, nickname, provider, provider_id, role, place_id)
+        VALUES (#{email}, #{password}, #{nickname}, #{provider}, #{providerId}, 'USER', NULL)
     </insert>
 
 </mapper>

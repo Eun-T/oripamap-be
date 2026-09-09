@@ -16,6 +16,8 @@
         <result property="nickname" column="nickname" />
         <result property="provider" column="provider" />
         <result property="providerId" column="provider_id" />
+        <result property="role" column="role" />
+        <result property="placeId" column="place_id" />
         <result property="regDate" column="created_at" />
         <result property="updateDate" column="updated_at" />
         <collection property="authList" resultMap="authMap" />
@@ -29,9 +31,11 @@
             nickname,
             provider,
             provider_id,
+            role,
+            place_id,
             created_at,
             updated_at,
-            'ROLE_MEMBER' AS auth
+            CONCAT('ROLE_', role) AS auth
         FROM users
         WHERE email = #{email}
           AND provider = 'LOCAL'
@@ -39,8 +43,15 @@
 
     <select id="getById" resultMap="memberMap">
         SELECT id, email, password, nickname, provider, provider_id,
-               created_at, updated_at, 'ROLE_MEMBER' AS auth
+               role, place_id, created_at, updated_at,
+               CONCAT('ROLE_', role) AS auth
         FROM users
         WHERE id = #{id}
     </select>
+
+    <update id="updateRoleAndPlace">
+        UPDATE users
+        SET role = #{role}, place_id = #{placeId}
+        WHERE id = #{userId}
+    </update>
 </mapper>

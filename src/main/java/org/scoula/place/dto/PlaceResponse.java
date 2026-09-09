@@ -1,5 +1,6 @@
 package org.scoula.place.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,6 +12,9 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlaceResponse {
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private OripaPlaceResponse oripaPlace;
 
     private Long id;
     private String type;

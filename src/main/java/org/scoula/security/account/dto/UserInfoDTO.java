@@ -16,6 +16,7 @@ public class UserInfoDTO {
     String email;
     String nickname;
     List<String> roles;
+    Long placeId;
 
     public static UserInfoDTO of(MemberVO member){
 
@@ -24,7 +25,8 @@ public class UserInfoDTO {
                 member.getUsername(),
                 member.getEmail(),
                 member.getNickname(),
-                member.getAuthList().stream().map(a -> a.getAuth()).toList() // {"role_admin", "role_member"}
+                member.getAuthList().stream().map(a -> a.getAuth()).toList(),
+                member.getPlaceId()
                 );
     }
 

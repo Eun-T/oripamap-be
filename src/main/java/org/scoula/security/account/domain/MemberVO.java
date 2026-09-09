@@ -20,6 +20,8 @@ public class MemberVO {
     private String nickname;
     private String provider;
     private String providerId;
+    private String role;
+    private Long placeId;
     private Date regDate;
     private Date updateDate;
     private List<AuthVO> authList; //username, auth(role)

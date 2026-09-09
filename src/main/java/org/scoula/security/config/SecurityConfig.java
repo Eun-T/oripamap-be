@@ -125,12 +125,14 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         //role별 접근 권한 설정
 //        http.authorizeRequests()
 //                .antMatchers("/security/all").permitAll()
-//                .antMatchers("/security/admin").access("hasRole('ROLE_ADMIN')")
-//                .antMatchers("/security/member").access("hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER')");
+//                .antMatchers("/security/admin").access("hasRole('ADMIN')")
+//                .antMatchers("/security/member").access("hasAnyRole('ADMIN', 'USER')");
 
         http
                 .authorizeRequests() // 경로별 접근 권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
+                .antMatchers(HttpMethod.DELETE, "/api/places/*").hasRole("ADMIN")
+                .antMatchers(HttpMethod.PUT, "/api/places/*/oripa").hasAnyRole("ADMIN", "OWNER")
                 .antMatchers(HttpMethod.POST,
                         "/api/auth/login",
                         "/api/auth/refresh",
@@ -143,6 +145,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                         "/api/auth/naver/callback",
                         "/api/places",
                         "/api/places/search",
+                        "/api/places/*",
                         "/api/comments/place/*",
                         "/api/comments/place/*/photos",
                         "/api/member/checkemail/*",
