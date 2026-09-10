@@ -10,6 +10,7 @@ public interface MemberService {
     MemberDTO get(String username);
     MemberDTO join(MemberJoinDTO member);
     MemberDTO update(String authenticatedUsername, MemberUpdateDTO member);
+    void updateNickname(Long userId, String nickname);
     void changePassword(String authenticatedUsername, ChangePasswordDTO changePassword);
 
 }

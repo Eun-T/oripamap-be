@@ -36,11 +36,12 @@ class UserInfoResponseTest {
     void usersMeReturnsOwnersPlaceIdAndKeepsRolesFormat() throws Exception {
         CustomUser owner = user("OWNER", 3L, "KAKAO");
 
-        UserInfoDTO body = new UserController().getMe(owner).getBody();
+        UserInfoDTO body = new UserController(null).getMe(owner).getBody();
         JsonNode json = objectMapper.valueToTree(body);
 
         assertEquals(3L, json.get("placeId").asLong());
         assertEquals("ROLE_OWNER", json.get("roles").get(0).asText());
+        assertEquals("KAKAO", json.get("provider").asText());
     }
 
     @Test

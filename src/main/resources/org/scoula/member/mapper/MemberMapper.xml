@@ -40,6 +40,23 @@
         )
     </select>
 
+    <select id="existsByNickname" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM users
+            WHERE nickname = #{nickname}
+        )
+    </select>
+
+    <select id="existsByNicknameExcludingUser" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM users
+            WHERE nickname = #{nickname}
+              AND id != #{userId}
+        )
+    </select>
+
     <insert id="insert">
         INSERT INTO users (email, password, nickname, provider, role, place_id)
         VALUES (#{email}, #{password}, #{nickname}, 'LOCAL', 'USER', NULL)
@@ -52,6 +69,13 @@
             updated_at = now()
         WHERE email = #{username}
           AND provider = 'LOCAL'
+    </update>
+
+    <update id="updateNickname">
+        UPDATE users
+        SET nickname = #{nickname},
+            updated_at = now()
+        WHERE id = #{id}
     </update>
 
     <update id="updatePassword">

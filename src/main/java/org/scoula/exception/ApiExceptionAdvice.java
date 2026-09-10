@@ -1,6 +1,7 @@
 package org.scoula.exception;
 
 import org.scoula.member.exception.EmailAlreadyExistsException;
+import org.scoula.member.exception.NicknameAlreadyExistsException;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,12 @@ public class ApiExceptionAdvice {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .header("Content-Type", "text/plain;charset=UTF-8")
                 .body("\uC774\uBBF8 \uC0AC\uC6A9 \uC911\uC778 \uC774\uBA54\uC77C\uC785\uB2C8\uB2E4.");
+    }
+
+    @ExceptionHandler(NicknameAlreadyExistsException.class)
+    protected ResponseEntity<ApiErrorResponse> handleNicknameAlreadyExists(NicknameAlreadyExistsException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse("NICKNAME_ALREADY_EXISTS", e.getMessage()));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

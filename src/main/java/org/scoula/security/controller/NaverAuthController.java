@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.scoula.member.exception.EmailAlreadyExistsException;
+import org.scoula.member.exception.NicknameAlreadyExistsException;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.service.SocialAccountRegistrationService;
@@ -153,6 +154,8 @@ public class NaverAuthController {
         } catch (ResponseStatusException e) {
             throw e;
         } catch (EmailAlreadyExistsException e) {
+            throw e;
+        } catch (NicknameAlreadyExistsException e) {
             throw e;
         } catch (HttpStatusCodeException e) {
             logNaverApiError("로그인 처리", e);

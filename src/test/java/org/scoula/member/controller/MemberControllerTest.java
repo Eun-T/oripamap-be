@@ -107,6 +107,11 @@ class MemberControllerTest {
         }
 
         @Override
+        public void updateNickname(Long userId, String nickname) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void changePassword(String authenticatedUsername, ChangePasswordDTO changePassword) {
             changePasswordCalled = true;
             changePasswordUsername = authenticatedUsername;

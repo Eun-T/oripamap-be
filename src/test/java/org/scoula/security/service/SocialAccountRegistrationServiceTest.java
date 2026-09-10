@@ -9,6 +9,8 @@ import org.springframework.dao.DuplicateKeyException;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SocialAccountRegistrationServiceTest {
 
@@ -60,6 +62,21 @@ class SocialAccountRegistrationServiceTest {
         assertSame(insertedMember, result);
     }
 
+    @Test
+    void retriesWithUniqueSevenCharacterNicknameAfterSocialNicknameRace() {
+        SocialNicknameCollisionMapper memberMapper = new SocialNicknameCollisionMapper();
+        SocialAccountRegistrationService service = new SocialAccountRegistrationService(memberMapper);
+        MemberVO request = socialMember(null, "KAKAO", "provider-id");
+        request.setEmail("social@example.com");
+        request.setNickname("아주긴소셜닉네임");
+
+        MemberVO result = service.insertOrGetExisting(request);
+
+        assertSame(memberMapper.insertedMember, result);
+        assertNotEquals("아주긴소셜", result.getNickname());
+        assertTrue(result.getNickname().codePointCount(0, result.getNickname().length()) <= 7);
+    }
+
     private MemberVO socialMember(Long id, String provider, String providerId) {
         return MemberVO.builder()
                 .id(id)
@@ -97,6 +114,16 @@ class SocialAccountRegistrationServiceTest {
         }
 
         @Override
+        public boolean existsByNickname(String nickname) {
+            return false;
+        }
+
+        @Override
+        public boolean existsByNicknameExcludingUser(String nickname, Long userId) {
+            return false;
+        }
+
+        @Override
         public int insert(MemberVO member) {
             throw new UnsupportedOperationException();
         }
@@ -107,8 +134,38 @@ class SocialAccountRegistrationServiceTest {
         }
 
         @Override
+        public int updateNickname(Long id, String nickname) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public int updatePassword(ChangePasswordDTO changePasswordDTO) {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class SocialNicknameCollisionMapper extends StubMemberMapper {
+        private int insertAttempts;
+        private MemberVO insertedMember;
+
+        @Override
+        public int insertSocial(MemberVO member) {
+            insertAttempts++;
+            if (insertAttempts == 1) {
+                throw new DuplicateKeyException("uk_users_nickname");
+            }
+            insertedMember = member;
+            return 1;
+        }
+
+        @Override
+        public MemberVO findByProvider(String provider, String providerId) {
+            return insertedMember;
+        }
+
+        @Override
+        public boolean existsByNickname(String nickname) {
+            return insertAttempts == 1;
         }
     }
 }

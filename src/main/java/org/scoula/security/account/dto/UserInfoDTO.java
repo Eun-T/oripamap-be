@@ -15,6 +15,7 @@ public class UserInfoDTO {
     String username;
     String email;
     String nickname;
+    String provider;
     List<String> roles;
     Long placeId;
 
@@ -25,6 +26,7 @@ public class UserInfoDTO {
                 member.getUsername(),
                 member.getEmail(),
                 member.getNickname(),
+                member.getProvider(),
                 member.getAuthList().stream().map(a -> a.getAuth()).toList(),
                 member.getPlaceId()
                 );

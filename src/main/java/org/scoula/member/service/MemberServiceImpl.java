@@ -7,8 +7,10 @@ import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
 import org.scoula.member.exception.EmailAlreadyExistsException;
+import org.scoula.member.exception.NicknameAlreadyExistsException;
 import org.scoula.member.exception.PasswordMissmatchException;
 import org.scoula.member.mapper.MemberMapper;
+import org.scoula.member.util.NicknamePolicy;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.refresh.service.RefreshTokenService;
 import org.springframework.dao.DuplicateKeyException;
@@ -43,11 +45,23 @@ public class MemberServiceImpl  implements MemberService {
     @Override
     public MemberDTO join(MemberJoinDTO dto) {
         MemberVO member = dto.toVO();
+        if (!NicknamePolicy.isValid(member.getNickname())) {
+            throw new IllegalArgumentException("닉네임은 공백 없이 1자 이상 7자 이하여야 합니다.");
+        }
+        if (mapper.existsByNickname(member.getNickname())) {
+            throw new NicknameAlreadyExistsException();
+        }
         member.setPassword(passwordEncoder.encode(member.getPassword())); // 비밀번호 암호화
         try {
             mapper.insert(member);
         } catch (DuplicateKeyException e) {
-            throw new EmailAlreadyExistsException(e);
+            if (mapper.existsByEmail(member.getEmail())) {
+                throw new EmailAlreadyExistsException(e);
+            }
+            if (mapper.existsByNickname(member.getNickname())) {
+                throw new NicknameAlreadyExistsException(e);
+            }
+            throw e;
         }
         return get(member.getEmail());
     }
@@ -65,6 +79,24 @@ public class MemberServiceImpl  implements MemberService {
             throw new EmailAlreadyExistsException(e);
         }
         return get(member.getEmail());
+    }
+
+    @Transactional
+    @Override
+    public void updateNickname(Long userId, String nickname) {
+        if (!NicknamePolicy.isValid(nickname)) {
+            throw new IllegalArgumentException("닉네임은 공백 없이 1자 이상 7자 이하여야 합니다.");
+        }
+        if (mapper.existsByNicknameExcludingUser(nickname, userId)) {
+            throw new NicknameAlreadyExistsException();
+        }
+        try {
+            if (mapper.updateNickname(userId, nickname) != 1) {
+                throw new NoSuchElementException();
+            }
+        } catch (DuplicateKeyException e) {
+            throw new NicknameAlreadyExistsException(e);
+        }
     }
 
     @Transactional

@@ -8,6 +8,7 @@ import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
 import org.scoula.member.exception.EmailAlreadyExistsException;
 import org.scoula.member.service.MemberService;
+import org.scoula.member.util.NicknamePolicy;
 import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
@@ -34,10 +35,12 @@ public class MemberController {
     }
     @PostMapping("")
     public ResponseEntity<MemberDTO> join(MemberJoinDTO member) {
+        String nickname = member.getNickname() == null || member.getNickname().isBlank()
+                ? member.getUsername()
+                : member.getNickname();
         if (member.getEmail() == null || member.getEmail().isBlank()
                 || member.getPassword() == null || member.getPassword().isBlank()
-                || ((member.getNickname() == null || member.getNickname().isBlank())
-                    && (member.getUsername() == null || member.getUsername().isBlank()))) {
+                || !NicknamePolicy.isValid(nickname)) {
             return ResponseEntity.badRequest().build();
         }
         if (service.existsByEmail(member.getEmail())) {
