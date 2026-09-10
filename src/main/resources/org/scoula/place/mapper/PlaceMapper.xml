@@ -27,6 +27,14 @@
         FROM places p WHERE p.id = #{id}
     </select>
 
+    <select id="findTagsByPlaceId" resultType="org.scoula.place.vo.TagVO">
+        SELECT t.id, t.name, t.category
+        FROM tags t
+        INNER JOIN place_tags pt ON pt.tag_id = t.id
+        WHERE pt.place_id = #{placeId}
+        ORDER BY t.id ASC
+    </select>
+
     <select id="findIdForUpdate" resultType="java.lang.Long">
         SELECT id FROM places WHERE id = #{id} FOR UPDATE
     </select>

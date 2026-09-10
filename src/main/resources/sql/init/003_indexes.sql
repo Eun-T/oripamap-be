@@ -22,6 +22,9 @@ CREATE INDEX idx_places_name
 CREATE INDEX idx_places_location
     ON places(latitude, longitude);
 
+CREATE INDEX idx_place_tags_tag_id
+    ON place_tags(tag_id);
+
 
 -- ============================================================
 -- PLACE_IMAGES

@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import org.scoula.place.dto.PlaceResponse;
+import org.scoula.place.dto.TagResponse;
 import org.scoula.place.mapper.PlaceMapper;
 import org.scoula.place.vo.PlaceVO;
 import org.scoula.security.account.domain.MemberVO;
@@ -179,7 +180,15 @@ public class PlaceService {
                 .latitude(place.getLatitude()).longitude(place.getLongitude())
                 .businessHours(place.getBusinessHours()).holidayInfo(place.getHolidayInfo())
                 .phone(place.getPhone()).description(place.getDescription())
-                .imageUrl(place.getImageUrl()).oripaPlace(oripa).build();
+                .imageUrl(place.getImageUrl()).oripaPlace(oripa)
+                .tags(placeMapper.findTagsByPlaceId(id).stream()
+                        .map(tag -> TagResponse.builder()
+                                .id(tag.getId())
+                                .name(tag.getName())
+                                .category(tag.getCategory())
+                                .build())
+                        .toList())
+                .build();
     }
 
     private JsonNode parseSocialLinks(String value) {

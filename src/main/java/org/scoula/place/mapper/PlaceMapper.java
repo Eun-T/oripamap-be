@@ -3,6 +3,7 @@ package org.scoula.place.mapper;
 import org.scoula.place.vo.PlaceVO;
 import org.scoula.place.vo.OripaPlaceVO;
 import org.scoula.place.vo.OripaPlaceImageVO;
+import org.scoula.place.vo.TagVO;
 import org.apache.ibatis.annotations.Mapper;
 import java.util.List;
 
@@ -14,6 +15,8 @@ public interface PlaceMapper {
     List<PlaceVO> searchPlaces(String keyword);
 
     PlaceVO findById(Long id);
+
+    List<TagVO> findTagsByPlaceId(Long placeId);
 
     Long findIdForUpdate(Long id);
 

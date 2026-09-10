@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Builder
@@ -15,6 +16,9 @@ public class PlaceResponse {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private OripaPlaceResponse oripaPlace;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<TagResponse> tags;
 
     private Long id;
     private String type;

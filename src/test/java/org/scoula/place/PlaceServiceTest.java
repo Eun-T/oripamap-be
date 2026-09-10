@@ -14,6 +14,7 @@ import org.scoula.security.account.domain.MemberVO;
 import org.scoula.place.vo.OripaPlaceImageVO;
 import org.scoula.place.vo.OripaPlaceVO;
 import org.scoula.place.vo.PlaceVO;
+import org.scoula.place.vo.TagVO;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -33,6 +34,7 @@ class PlaceServiceTest {
     PlaceVO place = new PlaceVO();
     OripaPlaceVO detail = new OripaPlaceVO();
     List<OripaPlaceImageVO> images = List.of(image(2L, "first", 0), image(1L, "second", 1));
+    List<TagVO> tags = List.of(tag(1L, "포켓몬", "TCG"), tag(2L, "매입가능", "SERVICE"));
     boolean failCommit;
     boolean failDelete;
     boolean failS3;
@@ -45,6 +47,7 @@ class PlaceServiceTest {
                 events.add(method.getName());
                 return switch (method.getName()) {
                     case "findById" -> place;
+                    case "findTagsByPlaceId" -> tags;
                     case "findIdForUpdate" -> place == null ? null : 1L;
                     case "findOripaByPlaceId" -> detail;
                     case "findOripaImagesByPlaceId" -> images;
@@ -124,19 +127,26 @@ class PlaceServiceTest {
         var json = new ObjectMapper().valueToTree(response);
         assertTrue(json.get("oripaPlace").get("socialLinks").isArray());
         assertFalse(json.get("oripaPlace").get("images").get(0).has("imageKey"));
+        assertEquals("포켓몬", json.get("tags").get(0).get("name").asText());
+        assertEquals("TCG", json.get("tags").get(0).get("category").asText());
     }
 
-    @Test void vendingRetainsLegacyFieldsWithoutOripaQueries() {
+    @Test void vendingLoadsCommonTagsWithoutOripaQueries() {
         place.setType("POKEMON_VENDING");
         PlaceResponse response = service.getPlace(1L);
         assertEquals(place.getImageUrl(), response.getImageUrl());
+        assertEquals(List.of("포켓몬", "매입가능"), response.getTags().stream().map(tag -> tag.getName()).toList());
         assertFalse(new ObjectMapper().valueToTree(response).has("oripaPlace"));
-        assertEquals(List.of("findById"), events);
+        assertEquals(List.of("findById", "findTagsByPlaceId"), events);
     }
 
     @Test void listAndSearchDoNotLoadOripaData() {
-        assertNull(service.getPlaces().get(0).getOripaPlace());
-        assertNull(service.searchPlaces("test").get(0).getOripaPlace());
+        PlaceResponse listed = service.getPlaces().get(0);
+        PlaceResponse searched = service.searchPlaces("test").get(0);
+        assertNull(listed.getOripaPlace());
+        assertNull(searched.getOripaPlace());
+        assertFalse(new ObjectMapper().valueToTree(listed).has("tags"));
+        assertFalse(new ObjectMapper().valueToTree(searched).has("tags"));
         assertEquals(List.of("findAll", "searchPlaces"), events);
     }
 
@@ -211,6 +221,11 @@ class PlaceServiceTest {
         String sql = config.getMappedStatement(PlaceMapper.class.getName() + ".findOripaImagesByPlaceId")
                 .getBoundSql(1L).getSql().replaceAll("\\s+", " ");
         assertTrue(sql.contains("ORDER BY sort_order ASC, id ASC"));
+        String tagSql = config.getMappedStatement(PlaceMapper.class.getName() + ".findTagsByPlaceId")
+                .getBoundSql(1L).getSql().replaceAll("\\s+", " ");
+        assertTrue(tagSql.contains("INNER JOIN place_tags"));
+        assertTrue(tagSql.contains("WHERE pt.place_id = ?"));
+        assertTrue(tagSql.contains("ORDER BY t.id ASC"));
     }
 
     @Test void controllerRoutesDetailSearchAndDelete() throws Exception {
@@ -242,6 +257,14 @@ class PlaceServiceTest {
         image.setImageKey(key);
         image.setSortOrder(order);
         return image;
+    }
+
+    private static TagVO tag(Long id, String name, String category) {
+        TagVO tag = new TagVO();
+        tag.setId(id);
+        tag.setName(name);
+        tag.setCategory(category);
+        return tag;
     }
 
     private org.scoula.place.dto.OripaPlaceRequest request(String imageJson) throws Exception {
