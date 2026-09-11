@@ -21,6 +21,7 @@ public class PlaceResponse {
     private List<TagResponse> tags;
 
     private Long id;
+    private String publicId;
     private String type;
     private String name;
     private String branchName;

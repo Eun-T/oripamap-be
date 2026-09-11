@@ -29,7 +29,7 @@
     </select>
 
     <select id="findPlacesByUserId" resultType="org.scoula.place.vo.PlaceVO">
-        SELECT p.id, p.type, p.name, p.branch_name AS branchName,
+        SELECT p.id, p.public_id AS publicId, p.type, p.name, p.branch_name AS branchName,
                p.address, p.location_detail AS locationDetail,
                p.latitude, p.longitude,
                p.business_hours AS businessHours,

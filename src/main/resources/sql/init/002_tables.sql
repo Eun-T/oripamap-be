@@ -57,6 +57,7 @@ CREATE TABLE refresh_tokens (
 -- ============================================================
 CREATE TABLE places (
                         id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        public_id CHAR(36) NOT NULL DEFAULT (UUID()),
 
                         type ENUM(
         'ORIPA',

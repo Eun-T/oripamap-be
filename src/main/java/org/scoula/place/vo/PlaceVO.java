@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public class PlaceVO {
 
     private Long id;
+    private String publicId;
     private String type;
 
     private String name;

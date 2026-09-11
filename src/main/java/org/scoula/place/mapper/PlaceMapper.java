@@ -5,6 +5,7 @@ import org.scoula.place.vo.OripaPlaceVO;
 import org.scoula.place.vo.OripaPlaceImageVO;
 import org.scoula.place.vo.TagVO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 @Mapper
@@ -15,6 +16,8 @@ public interface PlaceMapper {
     List<PlaceVO> searchPlaces(String keyword);
 
     PlaceVO findById(Long id);
+
+    PlaceVO findByPublicId(@Param("publicId") String publicId);
 
     List<TagVO> findTagsByPlaceId(Long placeId);
 

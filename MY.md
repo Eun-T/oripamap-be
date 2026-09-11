@@ -122,3 +122,26 @@ PUT은 반드시 수정만 의미하는 것은 아니다.
 - 데이터가 있으면 → 갱신
 
 처럼 `upsert` 방식으로 설계할 수도 있다.
+
+## 4. UUID
+
+UUID는 **거의 겹치지 않는 고유 식별자**다.
+
+```text
+51c191c7-b6fd-4b21-9b36-d5648e5c0cfa
+```
+
+오맵에서는 기존 숫자 ID는 DB 내부용으로 유지하고, UUID는 URL 공개용으로 사용한다.
+
+```text
+id = 67                     → DB 내부용
+public_id = UUID            → URL 공개용
+```
+
+예:
+
+```text
+/place/51c191c7-b6fd-4b21-9b36-d5648e5c0cfa
+```
+
+Java에서는 `UUID.randomUUID()`로 쉽게 생성할 수 있다.

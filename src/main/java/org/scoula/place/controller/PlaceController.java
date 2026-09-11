@@ -44,6 +44,11 @@ public class PlaceController {
         return placeService.getPlace(id);
     }
 
+    @GetMapping("/public/{publicId}")
+    public PlaceResponse getPlaceByPublicId(@PathVariable("publicId") String publicId) {
+        return placeService.getPlaceByPublicId(publicId);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePlace(@PathVariable("id") Long id,

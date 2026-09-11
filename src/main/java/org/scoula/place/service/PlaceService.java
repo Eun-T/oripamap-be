@@ -174,7 +174,8 @@ public class PlaceService {
             }
         }
         return PlaceResponse.builder()
-                .id(place.getId()).type(place.getType()).name(place.getName())
+                .id(place.getId()).publicId(place.getPublicId())
+                .type(place.getType()).name(place.getName())
                 .branchName(place.getBranchName()).address(place.getAddress())
                 .locationDetail(place.getLocationDetail())
                 .latitude(place.getLatitude()).longitude(place.getLongitude())
@@ -189,6 +190,14 @@ public class PlaceService {
                                 .build())
                         .toList())
                 .build();
+    }
+
+    public PlaceResponse getPlaceByPublicId(String publicId) {
+        PlaceVO place = placeMapper.findByPublicId(publicId);
+        if (place == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
+        }
+        return getPlace(place.getId());
     }
 
     private JsonNode parseSocialLinks(String value) {
@@ -243,6 +252,7 @@ public class PlaceService {
                 .stream()
                 .map(place -> PlaceResponse.builder()
                         .id(place.getId())
+                        .publicId(place.getPublicId())
                         .type(place.getType())
                         .name(place.getName())
                         .branchName(place.getBranchName())
@@ -264,6 +274,7 @@ public class PlaceService {
                 .stream()
                 .map(place -> PlaceResponse.builder()
                         .id(place.getId())
+                        .publicId(place.getPublicId())
                         .type(place.getType())
                         .name(place.getName())
                         .branchName(place.getBranchName())

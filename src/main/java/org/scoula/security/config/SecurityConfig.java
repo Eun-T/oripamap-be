@@ -83,6 +83,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOrigin("http://localhost"); // Capacitor Android
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         source.registerCorsConfiguration("/**", config);
@@ -145,6 +146,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                         "/api/auth/naver/callback",
                         "/api/places",
                         "/api/places/search",
+                        "/api/places/public/*",
                         "/api/places/*",
                         "/api/comments/place/*",
                         "/api/comments/place/*/photos",

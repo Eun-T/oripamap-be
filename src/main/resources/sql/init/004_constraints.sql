@@ -19,6 +19,10 @@ ALTER TABLE favorites
     ADD CONSTRAINT uk_favorites_user_place
         UNIQUE (user_id, place_id);
 
+ALTER TABLE places
+    ADD CONSTRAINT uk_places_public_id
+        UNIQUE (public_id);
+
 ALTER TABLE refresh_tokens
     ADD CONSTRAINT uk_refresh_tokens_hash
         UNIQUE (token_hash);

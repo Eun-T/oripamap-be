@@ -27,6 +27,12 @@
         FROM places p WHERE p.id = #{id}
     </select>
 
+    <select id="findByPublicId" resultType="org.scoula.place.vo.PlaceVO">
+        SELECT id, public_id AS publicId
+        FROM places
+        WHERE public_id = #{publicId}
+    </select>
+
     <select id="findTagsByPlaceId" resultType="org.scoula.place.vo.TagVO">
         SELECT t.id, t.name, t.category
         FROM tags t
@@ -56,6 +62,7 @@
     <select id="findAll" resultType="org.scoula.place.vo.PlaceVO">
         SELECT
             p.id,
+            p.public_id AS publicId,
             p.type,
             p.name,
             p.branch_name AS branchName,
@@ -83,6 +90,7 @@
     <select id="searchPlaces" resultType="org.scoula.place.vo.PlaceVO">
         SELECT
             p.id,
+            p.public_id AS publicId,
             p.type,
             p.name,
             p.branch_name AS branchName,

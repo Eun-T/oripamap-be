@@ -27,7 +27,8 @@ public class FavoriteService {
     public List<PlaceResponse> getFavorites(Long userId) {
         return favoriteMapper.findPlacesByUserId(userId).stream()
                 .map(place -> PlaceResponse.builder()
-                        .id(place.getId()).type(place.getType()).name(place.getName())
+                        .id(place.getId()).publicId(place.getPublicId())
+                        .type(place.getType()).name(place.getName())
                         .branchName(place.getBranchName()).address(place.getAddress())
                         .locationDetail(place.getLocationDetail())
                         .latitude(place.getLatitude()).longitude(place.getLongitude())

@@ -47,6 +47,7 @@ class PlaceServiceTest {
                 events.add(method.getName());
                 return switch (method.getName()) {
                     case "findById" -> place;
+                    case "findByPublicId" -> place != null && place.getPublicId().equals(args[0]) ? place : null;
                     case "findTagsByPlaceId" -> tags;
                     case "findIdForUpdate" -> place == null ? null : 1L;
                     case "findOripaByPlaceId" -> detail;
@@ -110,6 +111,7 @@ class PlaceServiceTest {
 
     PlaceServiceTest() {
         place.setId(1L);
+        place.setPublicId("6ba7b810-9dad-11d1-80b4-00c04fd430c8");
         place.setType("ORIPA");
         place.setImageUrl("https://legacy.test/image.png");
         detail.setPlaceId(1L);
@@ -120,6 +122,7 @@ class PlaceServiceTest {
 
     @Test void detailReturnsJsonArrayAndSignedImages() throws Exception {
         PlaceResponse response = service.getPlace(1L);
+        assertEquals(place.getPublicId(), response.getPublicId());
         assertEquals("summary", response.getOripaPlace().getSummary());
         assertEquals("introduction", response.getOripaPlace().getIntroduction());
         assertEquals(List.of(2L, 1L), response.getOripaPlace().getImages().stream().map(i -> i.getId()).toList());
@@ -129,6 +132,20 @@ class PlaceServiceTest {
         assertFalse(json.get("oripaPlace").get("images").get(0).has("imageKey"));
         assertEquals("포켓몬", json.get("tags").get(0).get("name").asText());
         assertEquals("TCG", json.get("tags").get(0).get("category").asText());
+    }
+
+    @Test void publicIdDetailReusesNumericIdDetailAndMissingReturns404() {
+        PlaceResponse response = service.getPlaceByPublicId(place.getPublicId());
+
+        assertEquals(place.getId(), response.getId());
+        assertEquals(place.getPublicId(), response.getPublicId());
+        assertEquals(List.of("findByPublicId", "findById", "findOripaByPlaceId",
+                "findOripaImagesByPlaceId", "sign:first", "sign:second", "findTagsByPlaceId"), events);
+
+        events.clear();
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.getPlaceByPublicId("missing-public-id")).getRawStatusCode());
+        assertEquals(List.of("findByPublicId"), events);
     }
 
     @Test void vendingLoadsCommonTagsWithoutOripaQueries() {
@@ -226,6 +243,9 @@ class PlaceServiceTest {
         assertTrue(tagSql.contains("INNER JOIN place_tags"));
         assertTrue(tagSql.contains("WHERE pt.place_id = ?"));
         assertTrue(tagSql.contains("ORDER BY t.id ASC"));
+        String publicIdSql = config.getMappedStatement(PlaceMapper.class.getName() + ".findByPublicId")
+                .getBoundSql("6ba7b810-9dad-11d1-80b4-00c04fd430c8").getSql().replaceAll("\\s+", " ");
+        assertTrue(publicIdSql.contains("WHERE public_id = ?"));
     }
 
     @Test void controllerRoutesDetailSearchAndDelete() throws Exception {
@@ -238,6 +258,8 @@ class PlaceServiceTest {
         assertTrue(new ObjectMapper().readTree(response.getContentAsString())
                 .get("oripaPlace").get("socialLinks").isArray());
         assertEquals(200, mvc.perform(get("/api/places/search").param("keyword", "test"))
+                .andReturn().getResponse().getStatus());
+        assertEquals(200, mvc.perform(get("/api/places/public/" + place.getPublicId()))
                 .andReturn().getResponse().getStatus());
         org.springframework.security.core.context.SecurityContextHolder.getContext()
                 .setAuthentication(authentication(admin));
