@@ -145,3 +145,70 @@ public_id = UUID            → URL 공개용
 ```
 
 Java에서는 `UUID.randomUUID()`로 쉽게 생성할 수 있다.
+
+------------------------------------------------------
+3. `/me` API 패턴
+------------------------------------------------------
+
+`/me`는 `{id}`에 들어가는 값이 아니라 **현재 로그인한 사용자를 의미하는 고정 경로**다.
+
+예:
+
+```http
+GET /api/inquiries/me
+GET /api/inquiries/123
+```
+
+- `/me` → 현재 로그인한 사용자의 문의 조회
+- `/123` → ID가 123인 특정 문의 조회
+
+Spring에서는 `/me`와 `/{id}`를 서로 다른 경로로 매핑할 수 있다.
+
+```java
+@GetMapping("/me")
+public List<InquiryResponse> getMyInquiries() {
+    // 인증 정보에서 현재 userId 조회
+}
+
+@GetMapping("/{id}")
+public InquiryResponse getInquiry(@PathVariable Long id) {
+    // id로 특정 문의 조회
+}
+```
+
+### 문의 API 구조
+
+```text
+POST  /api/inquiries
+→ 문의 등록
+
+GET   /api/inquiries/me
+→ 내 문의 목록
+
+GET   /api/admin/inquiries
+→ 관리자 전체 문의 목록
+
+GET   /api/admin/inquiries/{id}
+→ 관리자 특정 문의 조회
+
+PATCH /api/admin/inquiries/{id}/status
+→ 문의 처리 상태 변경
+```
+
+로그인한 본인의 데이터는 프론트에서 `userId`를 직접 보내기보다 `/me`를 사용하고, 서버가 JWT 등 인증 정보에서 현재 사용자를 확인하는 방식이 깔끔하다.
+
+------------------------------------------------------
+4. 재배포 흐름
+-----------------------------------------------------
+
+로컬 백엔드 수정
+↓
+WAR 다시 빌드
+↓
+Docker 이미지 다시 빌드
+↓
+EC2로 이미지/소스 반영
+↓
+기존 컨테이너 내리고 새 컨테이너 실행
+↓
+Nginx는 그대로

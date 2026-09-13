@@ -77,7 +77,28 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         return super.authenticationManager();
     }
 
+    // corsFilter() 대신 얘씀 나중에 삭제
     @Bean
+    public UrlBasedCorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        config.setAllowCredentials(true);
+        config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOrigin("http://localhost");
+        config.addAllowedOrigin("https://oripamap.com");
+        config.addAllowedOrigin("https://www.oripamap.com");
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", config);
+
+        return source;
+    }
+
+/*    @Bean
     public CorsFilter corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
@@ -88,7 +109,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         config.addAllowedMethod("*");
         source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);
-    }
+    }*/
 
     //시큐리티 적용하고 싶지 않은 요청 주소 등록.
     @Override
@@ -98,6 +119,10 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
 
     @Override
     public void configure(HttpSecurity http) throws Exception {
+
+        http.cors()
+                .configurationSource(corsConfigurationSource());
+
         http.addFilterBefore(encodingFilter(),
                         CsrfFilter.class)
                 .addFilterBefore(authenticationErrorFilter,
@@ -133,6 +158,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .authorizeRequests() // 경로별 접근 권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
                 .antMatchers(HttpMethod.DELETE, "/api/places/*").hasRole("ADMIN")
+                .antMatchers(HttpMethod.PUT, "/api/admin/inquiries/*/answer").hasRole("ADMIN")
                 .antMatchers(HttpMethod.PUT, "/api/places/*/oripa").hasAnyRole("ADMIN", "OWNER")
                 .antMatchers(HttpMethod.POST,
                         "/api/auth/login",

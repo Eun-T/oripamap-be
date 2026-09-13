@@ -272,3 +272,14 @@ CORS는 실제 프론트 도메인만 허용
 ✅ 로그아웃 시 Refresh 폐기
 ✅ 비밀번호 변경 시 Refresh 전체 폐기
 ✅ 전체 테스트 통과
+
+----------------------------------------------------
+3. Capacitor 안드로이드 스튜디오 설정
+------------------------------------------------------
+
+config.addAllowedOrigin("http://localhost"); // Capacitor Android
+
+public UrlBasedCorsConfigurationSource corsConfigurationSource()
+
+http.cors()
+.configurationSource(corsConfigurationSource());

@@ -31,6 +31,7 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.security.SecureRandom;
@@ -71,12 +72,13 @@ public class KakaoAuthController {
     private boolean stateCookieSecure;
 
     @GetMapping
-    public ResponseEntity<Void> login(HttpServletResponse response) {
+    public ResponseEntity<Void> login(HttpServletRequest request, HttpServletResponse response) {
         byte[] stateBytes = new byte[32];
         SECURE_RANDOM.nextBytes(stateBytes);
         String state = Base64.getUrlEncoder().withoutPadding().encodeToString(stateBytes);
 
         OAuthStateCookieUtil.addStateCookie(
+                request,
                 response,
                 "kakao_oauth_state",
                 state,
@@ -102,12 +104,14 @@ public class KakaoAuthController {
             @RequestParam String code,
             @RequestParam String state,
             @CookieValue(value = "kakao_oauth_state", required = false) String savedState,
+            HttpServletRequest request,
             HttpServletResponse response) {
         if (savedState == null || !savedState.equals(state)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 카카오 로그인 요청입니다.");
         }
 
         OAuthStateCookieUtil.deleteStateCookie(
+                request,
                 response,
                 "kakao_oauth_state",
                 "/api/auth/kakao",
@@ -146,7 +150,7 @@ public class KakaoAuthController {
             }
 
             String jwt = jwtProcessor.generateToken(member.getId());
-            jwtCookieUtil.addAccessTokenCookie(response, jwt);
+            jwtCookieUtil.addAccessTokenCookie(request, response, jwt);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(URI.create(frontendRedirectUri))
                     .build();

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 @RestController
@@ -29,18 +30,19 @@ public class AuthController {
     public ResponseEntity<Void> refresh(
             @CookieValue(value = RefreshTokenCookieUtil.REFRESH_TOKEN_COOKIE_NAME,
                     required = false) String refreshToken,
+            HttpServletRequest request,
             HttpServletResponse response) {
         return refreshTokenService.rotate(refreshToken)
                 .map(rotated -> {
                     String accessToken = jwtProcessor.generateToken(rotated.userId());
-                    jwtCookieUtil.addAccessTokenCookie(response, accessToken);
+                    jwtCookieUtil.addAccessTokenCookie(request, response, accessToken);
                     refreshTokenCookieUtil.addRefreshTokenCookie(
-                            response, rotated.refreshToken());
+                            request, response, rotated.refreshToken());
                     return ResponseEntity.noContent().<Void>build();
                 })
                 .orElseGet(() -> {
-                    jwtCookieUtil.deleteAccessTokenCookie(response);
-                    refreshTokenCookieUtil.deleteRefreshTokenCookie(response);
+                    jwtCookieUtil.deleteAccessTokenCookie(request, response);
+                    refreshTokenCookieUtil.deleteRefreshTokenCookie(request, response);
                     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
                 });
     }
@@ -49,10 +51,11 @@ public class AuthController {
     public ResponseEntity<Void> logout(
             @CookieValue(value = RefreshTokenCookieUtil.REFRESH_TOKEN_COOKIE_NAME,
                     required = false) String refreshToken,
+            HttpServletRequest request,
             HttpServletResponse response) {
         refreshTokenService.revoke(refreshToken);
-        jwtCookieUtil.deleteAccessTokenCookie(response);
-        refreshTokenCookieUtil.deleteRefreshTokenCookie(response);
+        jwtCookieUtil.deleteAccessTokenCookie(request, response);
+        refreshTokenCookieUtil.deleteRefreshTokenCookie(request, response);
         return ResponseEntity.noContent().build();
     }
 }

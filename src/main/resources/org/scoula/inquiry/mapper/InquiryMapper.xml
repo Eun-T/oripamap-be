@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.scoula.inquiry.mapper.InquiryMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO inquiries (
+            user_id,
+            type,
+            title,
+            content,
+            status
+        )
+        VALUES (
+            #{userId},
+            #{type},
+            #{title},
+            #{content},
+            #{status}
+        )
+    </insert>
+
+    <select id="findById" resultType="org.scoula.inquiry.vo.InquiryVO">
+        SELECT id,
+               user_id AS userId,
+               type,
+               title,
+               content,
+               status,
+               answer,
+               answered_at AS answeredAt,
+               created_at AS createdAt,
+               updated_at AS updatedAt
+        FROM inquiries
+        WHERE id = #{id}
+    </select>
+
+    <select id="findAllByUserId" resultType="org.scoula.inquiry.vo.InquiryVO">
+        SELECT id,
+               type,
+               title,
+               status,
+               created_at AS createdAt
+        FROM inquiries
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findByIdAndUserId" resultType="org.scoula.inquiry.vo.InquiryVO">
+        SELECT id,
+               type,
+               title,
+               content,
+               status,
+               answer,
+               created_at AS createdAt,
+               answered_at AS answeredAt
+        FROM inquiries
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <update id="updateAnswer">
+        UPDATE inquiries
+        SET answer = #{answer},
+            answered_at = CURRENT_TIMESTAMP,
+            status = 'RESOLVED'
+        WHERE id = #{id}
+    </update>
+
+</mapper>

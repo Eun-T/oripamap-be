@@ -1,75 +1,59 @@
 package org.scoula.security.util;
 
 import org.junit.jupiter.api.Test;
+import org.scoula.security.refresh.service.RefreshTokenService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import java.time.Duration;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class JwtCookieUtilTest {
+class RefreshTokenCookieUtilTest {
 
     @Test
-    void addAccessTokenCookieUsesSecureInHttpsEnvironment() {
-        JwtCookieUtil cookieUtil = new JwtCookieUtil(true);
+    void addRefreshTokenCookieKeepsWebPolicyAndValidity() {
+        RefreshTokenCookieUtil cookieUtil = new RefreshTokenCookieUtil(false);
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        cookieUtil.addAccessTokenCookie(request, response, "jwt-value", Duration.ofMinutes(30));
+        cookieUtil.addRefreshTokenCookie(request, response, "refresh-value");
 
         String cookie = response.getHeader(HttpHeaders.SET_COOKIE);
-        assertTrue(cookie.contains("accessToken=jwt-value"));
+        assertTrue(cookie.contains("refreshToken=refresh-value"));
         assertTrue(cookie.contains("Path=/"));
-        assertTrue(cookie.contains("Max-Age=1800"));
+        assertTrue(cookie.contains("Max-Age=" + RefreshTokenService.VALIDITY.getSeconds()));
         assertTrue(cookie.contains("HttpOnly"));
         assertTrue(cookie.contains("SameSite=Lax"));
-        assertTrue(cookie.contains("Secure"));
-    }
-
-    @Test
-    void addAccessTokenCookieOmitsSecureInLocalHttpEnvironment() {
-        JwtCookieUtil cookieUtil = new JwtCookieUtil(false);
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        cookieUtil.addAccessTokenCookie(request, response, "jwt-value");
-
-        String cookie = response.getHeader(HttpHeaders.SET_COOKIE);
         assertFalse(cookie.contains("Secure"));
     }
 
     @Test
-    void addAccessTokenCookieUsesCrossSitePolicyForAppRequest() {
-        JwtCookieUtil cookieUtil = new JwtCookieUtil(false);
+    void addRefreshTokenCookieUsesCrossSitePolicyForAppRequest() {
+        RefreshTokenCookieUtil cookieUtil = new RefreshTokenCookieUtil(false);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(ClientRequestUtil.CLIENT_TYPE_HEADER, "APP");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        cookieUtil.addAccessTokenCookie(request, response, "jwt-value");
+        cookieUtil.addRefreshTokenCookie(request, response, "refresh-value");
 
         String cookie = response.getHeader(HttpHeaders.SET_COOKIE);
-        assertTrue(cookie.contains("HttpOnly"));
         assertTrue(cookie.contains("Secure"));
         assertTrue(cookie.contains("SameSite=None"));
     }
 
     @Test
-    void deleteAccessTokenCookieKeepsIssuingSecurityAttributes() {
-        JwtCookieUtil cookieUtil = new JwtCookieUtil(true);
+    void deleteRefreshTokenCookieUsesAppSecurityAttributes() {
+        RefreshTokenCookieUtil cookieUtil = new RefreshTokenCookieUtil(false);
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(ClientRequestUtil.CLIENT_TYPE_HEADER, "APP");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        cookieUtil.deleteAccessTokenCookie(request, response);
+        cookieUtil.deleteRefreshTokenCookie(request, response);
 
         String cookie = response.getHeader(HttpHeaders.SET_COOKIE);
-        assertTrue(cookie.contains("accessToken="));
-        assertTrue(cookie.contains("Path=/"));
         assertTrue(cookie.contains("Max-Age=0"));
-        assertTrue(cookie.contains("HttpOnly"));
-        assertTrue(cookie.contains("SameSite=Lax"));
         assertTrue(cookie.contains("Secure"));
+        assertTrue(cookie.contains("SameSite=None"));
     }
 }

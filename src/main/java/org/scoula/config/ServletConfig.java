@@ -19,6 +19,7 @@ import org.springframework.web.servlet.view.JstlView;
         "org.scoula.member.controller",
         "org.scoula.comment.controller",
         "org.scoula.editrequest.controller",
+        "org.scoula.inquiry.controller",
 })
 public class ServletConfig implements WebMvcConfigurer {
     //스프링 내부에서 사용하는 서블릿(jsp)와 관련된 설정하는 파일.

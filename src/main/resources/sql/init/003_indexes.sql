@@ -77,3 +77,13 @@ CREATE INDEX idx_edit_requests_user
 
 CREATE INDEX idx_edit_requests_status
     ON edit_requests(status);
+
+-- ============================================================
+-- INQUIRIES
+-- ============================================================
+
+CREATE INDEX idx_inquiries_user_id
+    ON inquiries(user_id);
+
+CREATE INDEX idx_inquiries_status_created_at
+    ON inquiries(status, created_at);

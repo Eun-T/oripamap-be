@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.time.Duration;
 
@@ -19,21 +20,30 @@ public final class RefreshTokenCookieUtil {
         this.secure = secure;
     }
 
-    public void addRefreshTokenCookie(HttpServletResponse response, String token) {
+    public void addRefreshTokenCookie(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String token) {
         response.addHeader(HttpHeaders.SET_COOKIE,
-                createCookie(token, RefreshTokenService.VALIDITY).toString());
+                createCookie(request, token, RefreshTokenService.VALIDITY).toString());
     }
 
-    public void deleteRefreshTokenCookie(HttpServletResponse response) {
+    public void deleteRefreshTokenCookie(
+            HttpServletRequest request,
+            HttpServletResponse response) {
         response.addHeader(HttpHeaders.SET_COOKIE,
-                createCookie("", Duration.ZERO).toString());
+                createCookie(request, "", Duration.ZERO).toString());
     }
 
-    private ResponseCookie createCookie(String value, Duration maxAge) {
+    private ResponseCookie createCookie(
+            HttpServletRequest request,
+            String value,
+            Duration maxAge) {
+        boolean appClient = ClientRequestUtil.isApp(request);
         return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, value)
                 .httpOnly(true)
-                .secure(secure)
-                .sameSite("Lax")
+                .secure(appClient || secure)
+                .sameSite(appClient ? "None" : "Lax")
                 .path("/")
                 .maxAge(maxAge)
                 .build();

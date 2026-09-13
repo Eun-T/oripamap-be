@@ -26,6 +26,7 @@ import javax.sql.DataSource;
         "org.scoula.favorite.mapper",
         "org.scoula.comment.mapper",
         "org.scoula.editrequest.mapper",
+        "org.scoula.inquiry.mapper",
 })
 @ComponentScan(basePackages = {
         "org.scoula.common.service",
@@ -34,6 +35,7 @@ import javax.sql.DataSource;
         "org.scoula.favorite.service",
         "org.scoula.comment.service",
         "org.scoula.editrequest.service",
+        "org.scoula.inquiry.service",
 })
 @PropertySource(
         value = {"classpath:/application.properties", "classpath:/application-secret.properties"},

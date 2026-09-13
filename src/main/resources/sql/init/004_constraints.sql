@@ -60,3 +60,7 @@ ALTER TABLE edit_requests
         FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE,
     ADD CONSTRAINT fk_edit_requests_user
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE inquiries
+    ADD CONSTRAINT fk_inquiries_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;

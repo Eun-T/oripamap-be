@@ -32,6 +32,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.security.SecureRandom;
@@ -72,10 +73,11 @@ public class NaverAuthController {
     private boolean stateCookieSecure;
 
     @GetMapping
-    public ResponseEntity<Void> login(HttpServletResponse response) {
+    public ResponseEntity<Void> login(HttpServletRequest request, HttpServletResponse response) {
         String state = randomValue();
 
         OAuthStateCookieUtil.addStateCookie(
+                request,
                 response,
                 "naver_oauth_state",
                 state,
@@ -101,12 +103,14 @@ public class NaverAuthController {
             @RequestParam String code,
             @RequestParam String state,
             @CookieValue(value = "naver_oauth_state", required = false) String savedState,
+            HttpServletRequest request,
             HttpServletResponse response) {
         if (savedState == null || !savedState.equals(state)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 네이버 로그인 요청입니다.");
         }
 
         OAuthStateCookieUtil.deleteStateCookie(
+                request,
                 response,
                 "naver_oauth_state",
                 "/api/auth/naver",
@@ -147,7 +151,7 @@ public class NaverAuthController {
             }
 
             String jwt = jwtProcessor.generateToken(member.getId());
-            jwtCookieUtil.addAccessTokenCookie(response, jwt);
+            jwtCookieUtil.addAccessTokenCookie(request, response, jwt);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(URI.create(frontendRedirectUri))
                     .build();

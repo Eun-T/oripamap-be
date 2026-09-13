@@ -36,8 +36,8 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
         Long userId = user.getMember().getId();
         String accessToken = jwtProcessor.generateToken(userId);
         String refreshToken = refreshTokenService.issue(userId);
-        jwtCookieUtil.addAccessTokenCookie(response, accessToken);
-        refreshTokenCookieUtil.addRefreshTokenCookie(response, refreshToken);
+        jwtCookieUtil.addAccessTokenCookie(request, response, accessToken);
+        refreshTokenCookieUtil.addRefreshTokenCookie(request, response, refreshToken);
         JsonResponse.send(response, UserInfoDTO.of(user.getMember()));
     }
 }

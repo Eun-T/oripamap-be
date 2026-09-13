@@ -5,6 +5,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.time.Duration;
 
@@ -19,23 +20,37 @@ public final class JwtCookieUtil {
         this.secure = secure;
     }
 
-    public void addAccessTokenCookie(HttpServletResponse response, String token) {
-        response.addHeader(HttpHeaders.SET_COOKIE, createCookie(token, ACCESS_TOKEN_MAX_AGE).toString());
+    public void addAccessTokenCookie(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String token) {
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                createCookie(request, token, ACCESS_TOKEN_MAX_AGE).toString());
     }
 
-    void addAccessTokenCookie(HttpServletResponse response, String token, Duration maxAge) {
-        response.addHeader(HttpHeaders.SET_COOKIE, createCookie(token, maxAge).toString());
+    void addAccessTokenCookie(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String token,
+            Duration maxAge) {
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                createCookie(request, token, maxAge).toString());
     }
 
-    public void deleteAccessTokenCookie(HttpServletResponse response) {
-        response.addHeader(HttpHeaders.SET_COOKIE, createCookie("", Duration.ZERO).toString());
+    public void deleteAccessTokenCookie(HttpServletRequest request, HttpServletResponse response) {
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                createCookie(request, "", Duration.ZERO).toString());
     }
 
-    private ResponseCookie createCookie(String value, Duration maxAge) {
+    private ResponseCookie createCookie(
+            HttpServletRequest request,
+            String value,
+            Duration maxAge) {
+        boolean appClient = ClientRequestUtil.isApp(request);
         return ResponseCookie.from(ACCESS_TOKEN_COOKIE_NAME, value)
                 .httpOnly(true)
-                .secure(secure)
-                .sameSite("Lax")
+                .secure(appClient || secure)
+                .sameSite(appClient ? "None" : "Lax")
                 .path("/")
                 .maxAge(maxAge)
                 .build();
