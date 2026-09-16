@@ -283,3 +283,483 @@ public UrlBasedCorsConfigurationSource corsConfigurationSource()
 
 http.cors()
 .configurationSource(corsConfigurationSource());
+
+
+-------------------------------------------------------
+4. 
+--------------------------------------------------------
+# 2026-09-13 트러블슈팅 정리
+
+오늘 모바일 Safari / Android 앱에서 로그인·로그아웃 테스트 중 인증 관련 문제를 몇 가지 해결했다.
+
+---
+
+## 1. 모바일 Safari에서 로그인 실패
+
+### 증상
+
+아이폰 Safari에서 다음 주소로 접속:
+
+http://192.168.50.146:5173
+
+로그인 시:
+
+- "로그인 중 오류가 발생했습니다."
+- POST /api/auth/login → 403 Forbidden
+
+처음에는 Safari 쿠키 정책이나 OAuth 문제로 의심했다.
+
+PC Chrome에서도 동일하게:
+
+http://192.168.50.146:5173
+
+로 접속해 로그인해보니 똑같이 403이 발생했다.
+
+응답 내용을 확인해보니:
+
+Invalid CORS request
+
+가 반환되고 있었다.
+
+### 원인
+
+백엔드 CORS 허용 Origin은 기존에:
+
+- http://localhost:5173
+- http://localhost
+- https://oripamap.com
+- https://www.oripamap.com
+
+만 허용하고 있었다.
+
+하지만 모바일/PC에서 실제 접속한 Origin은:
+
+http://192.168.50.146:5173
+
+이었기 때문에 Spring CORS에서 요청을 거부하고 있었다.
+
+즉 Safari 문제가 아니라 CORS 허용 Origin 누락 문제였다.
+
+### 해결
+
+SecurityConfig의 CORS 설정에 개발용 IP Origin 추가:
+
+config.addAllowedOrigin("http://192.168.50.146:5173");
+
+기존 Origin은 그대로 유지했다.
+
+### 결과
+
+POST /api/auth/login의 403 Invalid CORS request가 사라졌고,
+아이폰 Safari에서도 정상 로그인 성공.
+
+### 배운 점
+
+localhost와 PC의 LAN IP는 브라우저 기준 서로 다른 Origin이다.
+
+따라서 같은 PC에서 실행하는 Vite라도:
+
+http://localhost:5173
+
+과
+
+http://192.168.50.146:5173
+
+은 CORS에서 별도로 허용해야 한다.
+
+---
+
+## 2. 로그아웃 버튼을 눌렀는데 다시 로그인되는 문제
+
+### 증상
+
+로그아웃 버튼을 누르면 UI상으로는 로그아웃된 것처럼 보였다.
+
+하지만 새로고침하거나 사용자 정보를 다시 조회하면 다시 로그인 상태로 돌아왔다.
+
+Network를 확인해보니:
+
+POST /api/auth/logout
+→ 403 Forbidden
+
+즉 실제 서버 로그아웃은 실패하고 있었다.
+
+### 프론트 기존 코드
+
+const logout = async () => {
+try {
+await api.post('/api/auth/logout')
+} finally {
+user.value = null
+}
+}
+
+### 원인
+
+finally는 API 성공/실패 여부와 상관없이 항상 실행된다.
+
+따라서:
+
+1. 서버 로그아웃 요청 → 403 실패
+2. 그래도 finally 실행
+3. user.value = null
+4. 화면에서는 로그아웃된 것처럼 표시
+5. 서버의 JWT/refresh 쿠키는 그대로 살아 있음
+6. 다시 /api/users/me 등을 호출하면 로그인 상태 복구
+
+즉 서버와 프론트 인증 상태가 서로 달라진 것이었다.
+
+### 해결 방향
+
+서버 로그아웃 성공 후에만 사용자 상태를 초기화하도록 변경:
+
+const logout = async () => {
+await api.post('/api/auth/logout')
+user.value = null
+}
+
+### 배운 점
+
+로그아웃처럼 서버 상태가 중요한 작업은 실패했는데도 클라이언트 상태를 무조건 초기화하면 안 된다.
+
+---
+
+## 3. 로그아웃 POST가 403 발생
+
+### 증상
+
+POST /api/auth/logout
+→ 403 Forbidden
+
+응답:
+
+"권한이 부족합니다."
+
+처음에는 OWNER / USER 같은 role 권한 문제로 보였다.
+
+### 백엔드 확인 결과
+
+/api/auth/logout은:
+
+- permitAll()
+- JWT 인증 필터에서도 logout 경로 제외
+- refresh 쿠키가 없어도 controller 처리 가능
+- AuthController에 진입하면 204 No Content 반환
+
+즉 실제 권한 문제는 아니었다.
+
+### 원인
+
+Spring Security의 CSRF 검증 때문이었다.
+
+기존 설정:
+
+.csrf()
+.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+.ignoringAntMatchers(
+"/api/auth/login",
+"/api/member"
+)
+
+logout은 CSRF 예외가 아니었다.
+
+Spring은 POST 요청에서 기본적으로:
+
+- XSRF-TOKEN 쿠키
+- X-XSRF-TOKEN 요청 헤더
+
+값이 일치하는지 확인한다.
+
+둘 중 하나가 없거나 값이 다르면 CsrfFilter 단계에서 403을 반환한다.
+
+permitAll()은 인가를 허용하는 설정이지 CSRF 검사를 제거하는 설정은 아니다.
+
+따라서 permitAll()이어도 CSRF 검증에 실패하면 403이 발생할 수 있다.
+
+---
+
+## 4. CSRF가 무엇인지
+
+CSRF는 다른 사이트가 사용자의 로그인 쿠키를 이용해서
+사용자 몰래 상태 변경 요청을 보내는 공격이다.
+
+예:
+
+오맵 로그인 상태
+→ 브라우저에 인증 쿠키 존재
+
+악성 사이트 방문
+→ 악성 사이트가 POST /api/auth/logout 요청 전송
+→ 브라우저가 오맵 쿠키를 자동으로 붙일 수 있음
+→ 서버가 정상 사용자 요청으로 착각할 수 있음
+
+이런 공격을 막기 위해 서버는 인증 쿠키만 확인하지 않고
+추가로 CSRF 토큰도 요구한다.
+
+정상 요청:
+
+인증 쿠키
++
+CSRF 토큰
+→ 서버 허용
+
+수상한 요청:
+
+인증 쿠키
++
+CSRF 토큰 없음
+→ 403
+
+---
+
+## 5. Android 앱에서 logout 403 발생
+
+### 현재 앱 구조
+
+Android Capacitor 앱에서는:
+
+VITE_API_BASE_URL=https://next-bali-charged-strength.trycloudflare.com
+
+을 사용해서 API를 직접 호출한다.
+
+Axios 설정:
+
+const api = axios.create({
+baseURL: import.meta.env.VITE_API_BASE_URL || '',
+timeout: 10000,
+withCredentials: true,
+withXSRFToken: true,
+xsrfCookieName: 'XSRF-TOKEN',
+xsrfHeaderName: 'X-XSRF-TOKEN',
+})
+
+Android 모드에서는:
+
+if (import.meta.env.MODE === 'android') {
+api.defaults.headers.common['X-Client-Type'] = 'APP'
+}
+
+를 사용한다.
+
+### 문제
+
+Capacitor WebView 문서 Origin은 보통:
+
+http://localhost
+
+API 도메인은:
+
+https://next-bali-charged-strength.trycloudflare.com
+
+이다.
+
+API 도메인의 XSRF-TOKEN 쿠키를
+http://localhost에서 실행되는 WebView JavaScript가 읽을 수 없다.
+
+withCredentials: true는 API 요청에 쿠키를 첨부할 수 있게 해줄 뿐,
+다른 도메인의 쿠키를 JavaScript가 읽게 해주는 기능은 아니다.
+
+따라서 Axios가 정상적인 X-XSRF-TOKEN 헤더를 만들 수 없었고,
+Spring CSRF 검사에서 403이 발생했다.
+
+---
+
+## 6. "권한이 부족합니다."인데 실제 권한 문제가 아니었던 이유
+
+CSRF 검증 실패도 AccessDeniedException 계열로 처리된다.
+
+현재 CustomAccessDeniedHandler는 AccessDeniedException 발생 시 모두:
+
+403
+"권한이 부족합니다."
+
+를 반환하고 있었다.
+
+그래서 실제 요청 흐름은:
+
+POST /api/auth/logout
+→ CsrfFilter
+→ CSRF 검증 실패
+→ CustomAccessDeniedHandler
+→ 403 "권한이 부족합니다."
+
+였다.
+
+즉 403 응답 문구만 보고 role 문제라고 판단하면 안 됐다.
+
+이를 구분하기 쉽게 CustomAccessDeniedHandler 로그에
+예외 클래스명도 기록하도록 수정했다.
+
+---
+
+## 7. Android APP 요청만 조건부 CSRF 제외
+
+### 목표
+
+CSRF를 전체적으로 끄지 않고:
+
+- 일반 웹 요청 → 기존 CSRF 보호 유지
+- Android 앱의 logout / refresh → 정상 작동
+
+하도록 처리했다.
+
+### 해결
+
+다음 조건을 모두 만족할 때만 CSRF 검증을 제외하도록 전용 RequestMatcher를 추가했다.
+
+- HTTP Method = POST
+- Path = /api/auth/logout 또는 /api/auth/refresh
+- Header = X-Client-Type: APP
+
+조건:
+
+POST
+AND
+(/api/auth/logout OR /api/auth/refresh)
+AND
+X-Client-Type: APP
+
+### 수정 파일
+
+- src/main/java/org/scoula/security/config/AppAuthCsrfRequestMatcher.java
+- src/main/java/org/scoula/security/config/SecurityConfig.java
+- src/main/java/org/scoula/security/handler/CustomAccessDeniedHandler.java
+- src/test/java/org/scoula/security/config/AppAuthCsrfRequestMatcherTest.java
+
+### 왜 logout / refresh 전체를 CSRF 예외로 만들지 않았는가?
+
+단순히:
+
+ignoringAntMatchers(
+"/api/auth/logout",
+"/api/auth/refresh"
+)
+
+처럼 처리하면 일반 웹 요청까지 CSRF 보호가 사라진다.
+
+그래서 앱에서만 보내는:
+
+X-Client-Type: APP
+
+헤더까지 함께 검사하도록 했다.
+
+웹 요청은 APP 헤더가 없으므로 기존 CSRF 검증을 그대로 받는다.
+
+CORS allowedOrigins도 *로 열지 않고 기존 명시 목록을 유지했다.
+
+### 결과
+
+Android 앱에서:
+
+POST /api/auth/logout
+→ 204 No Content
+
+정상 로그아웃 성공.
+
+refresh 요청도 Android APP 조건에서는 동일한 정책을 사용한다.
+
+---
+
+## 8. 웹 개발과 Android 빌드 환경 차이
+
+웹 개발:
+
+npm run dev
+
+- Vite 개발 서버 실행
+- 기본 mode = development
+- .env.development 사용
+- 코드 수정 시 HMR로 자동 반영
+
+Android 빌드:
+
+npm run build -- --mode android
+
+- Vite 개발 서버를 실행하는 명령이 아님
+- Android 앱에 들어갈 dist 결과물을 빌드
+- mode = android
+- .env.android 사용
+
+Android용 환경변수 예:
+
+VITE_API_BASE_URL=https://next-bali-charged-strength.trycloudflare.com
+
+즉 웹 개발과 Android 앱은 같은 Vue 코드를 사용하지만
+API 주소나 요청 환경은 mode별로 다르게 가져갈 수 있다.
+
+---
+
+# 최종 정리
+
+오늘 해결한 핵심 문제는 크게 3개였다.
+
+1. 모바일/PC LAN IP 로그인 403
+
+원인:
+http://192.168.50.146:5173 이 백엔드 CORS 허용 목록에 없었음
+
+증상:
+POST /api/auth/login
+→ 403
+→ Invalid CORS request
+
+해결:
+CORS allowedOrigins에
+
+http://192.168.50.146:5173
+
+추가
+
+결과:
+아이폰 Safari 로그인 성공
+
+
+2. 로그아웃된 것처럼 보이는데 다시 로그인되는 문제
+
+원인:
+logout API가 403으로 실패해도 finally에서 user.value = null 실행
+
+결과:
+프론트만 로그아웃 상태
+서버 인증 쿠키는 그대로 유지
+
+해결 방향:
+서버 로그아웃 성공 후에만 user.value = null 처리
+
+
+3. Android 앱 logout 403
+
+원인:
+Android Capacitor WebView가 API 도메인의 XSRF-TOKEN 쿠키를 읽지 못해서
+X-XSRF-TOKEN 헤더를 정상적으로 만들 수 없었음
+
+Spring CsrfFilter에서 요청 차단
+
+해결:
+다음 조건일 때만 CSRF 검증 제외
+
+POST
++
+/api/auth/logout 또는 /api/auth/refresh
++
+X-Client-Type: APP
+
+일반 웹 요청은 기존 CSRF 검증 유지
+
+결과:
+Android 앱 logout 정상 성공
+POST /api/auth/logout → 204 No Content
+
+
+# 오늘 배운 점
+
+- localhost와 LAN IP는 서로 다른 Origin이다.
+- CORS 허용 목록에 정확한 Origin이 없으면 403 Invalid CORS request가 날 수 있다.
+- 403이라고 무조건 role / 권한 문제는 아니다.
+- permitAll()이어도 CSRF 검증은 별도로 수행된다.
+- CSRF는 쿠키 기반 인증을 악용한 외부 요청을 막는 보안 장치다.
+- Capacitor 앱과 일반 웹 브라우저는 쿠키 / Origin 동작이 다르다.
+- withCredentials는 다른 도메인의 쿠키를 JavaScript가 읽게 해주는 옵션이 아니다.
+- 앱 전용 요청을 구분하기 위해 X-Client-Type: APP 헤더를 사용했다.
+- CSRF 전체를 끄는 대신 앱의 특정 요청에만 조건부 예외를 적용했다.
+- 서버 요청이 실패했는데 프론트 상태만 바꾸면 서버와 클라이언트 인증 상태가 어긋날 수 있다.

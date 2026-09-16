@@ -6,6 +6,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.scoula.common.service.S3ImageService;
 import org.scoula.place.dto.OripaPlaceResponse;
+import org.scoula.place.dto.EventPlaceRequest;
+import org.scoula.place.dto.EventPlaceResponse;
+import org.scoula.place.vo.EventPlaceVO;
+import org.scoula.place.vo.EventPlaceImageType;
+import org.scoula.place.vo.EventPlaceImageVO;
+import org.scoula.place.vo.EventType;
 import org.scoula.place.vo.OripaPlaceVO;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -26,6 +32,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Objects;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.scoula.place.dto.OripaPlaceRequest;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -81,9 +91,11 @@ public class PlaceService {
                 if (placeMapper.findIdForUpdate(placeId) == null) {
                     throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
                 }
-                if (!"ORIPA".equals(placeMapper.findById(placeId).getType())) {
+                PlaceVO place = placeMapper.findById(placeId);
+                if (!"ORIPA".equals(place.getType())) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ORIPA 매장만 등록/수정할 수 있습니다.");
                 }
+                requireLocation(place);
                 var existing = placeMapper.findOripaImagesByPlaceId(placeId);
                 Set<Long> owned = new HashSet<>();
                 existing.forEach(image -> owned.add(image.getId()));
@@ -149,12 +161,158 @@ public class PlaceService {
         return response;
     }
 
+    public PlaceResponse upsertEvent(Long placeId, EventPlaceRequest data, List<MultipartFile> files,
+                                     MemberVO actor) {
+        requirePlaceManager(actor, placeId);
+        if (data == null || data.getImages() == null || data.getSocialLinks() == null
+                || !data.getSocialLinks().isArray()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "images and socialLinks must be arrays.");
+        }
+        Set<Long> retained = new HashSet<>();
+        Set<Integer> indexes = new HashSet<>();
+        for (EventPlaceRequest.Image image : data.getImages()) {
+            if (image == null || (image.getId() == null) == (image.getFileIndex() == null)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Each image must specify exactly one of id or fileIndex.");
+            }
+            if (image.getId() != null) {
+                if (image.getId() <= 0 || !retained.add(image.getId())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Image IDs must be positive and unique.");
+                }
+            } else if (image.getImageType() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "New images must specify imageType.");
+            } else if (image.getFileIndex() < 0 || image.getFileIndex() >= files.size()
+                    || !indexes.add(image.getFileIndex())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "fileIndex values must be valid and unique.");
+            }
+        }
+        if (indexes.size() != files.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Every uploaded file must be referenced by images.");
+        }
+
+        List<String> uploaded = new ArrayList<>();
+        List<String> deleted = new ArrayList<>();
+        int[] completion = {TransactionSynchronization.STATUS_ROLLED_BACK};
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        PlaceResponse response;
+        try {
+            response = transaction.execute(status -> {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int result) { completion[0] = result; }
+                });
+                if (placeMapper.findIdForUpdate(placeId) == null) {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Place not found.");
+                }
+                PlaceVO place = placeMapper.findById(placeId);
+                if (!"EVENT".equals(place.getType())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Only EVENT places can have event details.");
+                }
+                EventType eventType = data.getEventType() != null
+                        ? data.getEventType()
+                        : Objects.requireNonNullElse(place.getEventType(), EventType.OFFLINE);
+                if (eventType == EventType.OFFLINE) {
+                    requireLocation(place);
+                }
+                var existing = placeMapper.findEventImagesByPlaceId(placeId);
+                Set<Long> owned = new HashSet<>();
+                existing.forEach(image -> owned.add(image.getId()));
+                if (!owned.containsAll(retained)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "An image ID does not belong to this event or does not exist.");
+                }
+                Map<Long, EventPlaceImageVO> existingById = existing.stream()
+                        .collect(Collectors.toMap(
+                                EventPlaceImageVO::getId,
+                                Function.identity()));
+                EventPlaceVO detail = new EventPlaceVO();
+                detail.setPlaceId(placeId);
+                detail.setEventType(eventType);
+                detail.setStartDate(data.getStartDate());
+                detail.setEndDate(data.getEndDate());
+                detail.setEventHours(data.getEventHours());
+                detail.setBenefits(data.getBenefits());
+                detail.setNotice(data.getNotice());
+                detail.setSummary(data.getSummary());
+                detail.setIntroduction(data.getIntroduction());
+                detail.setSocialLinks(data.getSocialLinks().toString());
+                placeMapper.upsertEvent(detail);
+                for (var image : existing) {
+                    if (!retained.contains(image.getId())) {
+                        if (placeMapper.deleteEventImage(placeId, image.getId()) != 1) {
+                            throw new IllegalStateException("Failed to delete the event image.");
+                        }
+                        deleted.add(image.getImageKey());
+                    }
+                }
+                Map<EventPlaceImageType, Integer> nextOrder = new EnumMap<>(EventPlaceImageType.class);
+                for (var image : data.getImages()) {
+                    EventPlaceImageType imageType = image.getImageType();
+                    if (image.getId() != null && imageType == null) {
+                        imageType = existingById.get(image.getId()).getImageType();
+                    }
+                    if (imageType == null) {
+                        throw new IllegalStateException("Existing event image has no imageType.");
+                    }
+                    int order = nextOrder.getOrDefault(imageType, 0);
+                    nextOrder.put(imageType, order + 1);
+                    if (image.getId() != null) {
+                        placeMapper.updateEventImageOrder(placeId, image.getId(), order, imageType);
+                    } else {
+                        String key = s3ImageService.upload(files.get(image.getFileIndex()));
+                        uploaded.add(key);
+                        if (placeMapper.insertEventImage(placeId, key, order, imageType) != 1) {
+                            throw new IllegalStateException("Failed to save the event image.");
+                        }
+                    }
+                }
+                return getPlace(placeId);
+            });
+        } catch (RuntimeException e) {
+            if (completion[0] == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                for (String key : uploaded) {
+                    try { s3ImageService.delete(key); }
+                    catch (RuntimeException cleanupError) {
+                        e.addSuppressed(cleanupError);
+                        log.error("EVENT save rollback S3 cleanup failed: placeId={}, key={}",
+                                placeId, key, cleanupError);
+                    }
+                }
+            } else if (!uploaded.isEmpty()) {
+                log.error("EVENT commit result requires verification: placeId={}, keys={}",
+                        placeId, uploaded, e);
+            }
+            throw e;
+        }
+        RuntimeException failure = null;
+        for (String key : deleted.stream().distinct().toList()) {
+            try { s3ImageService.delete(key); }
+            catch (RuntimeException e) {
+                log.error("EVENT post-commit S3 delete failed: placeId={}, key={}", placeId, key, e);
+                if (failure == null) failure = e;
+                else failure.addSuppressed(e);
+            }
+        }
+        if (failure != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Event details were saved, but image file cleanup failed.", failure);
+        }
+        return response;
+    }
+
     public PlaceResponse getPlace(Long id) {
         PlaceVO place = placeMapper.findById(id);
         if (place == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
         }
         OripaPlaceResponse oripa = null;
+        EventPlaceResponse event = null;
         if ("ORIPA".equals(place.getType())) {
             OripaPlaceVO detail = placeMapper.findOripaByPlaceId(id);
             if (detail != null) {
@@ -173,15 +331,40 @@ public class PlaceService {
                         .build();
             }
         }
+        if ("EVENT".equals(place.getType())) {
+            EventPlaceVO detail = placeMapper.findEventByPlaceId(id);
+            if (detail != null) {
+                event = EventPlaceResponse.builder()
+                        .placeId(detail.getPlaceId())
+                        .eventType(detail.getEventType())
+                        .startDate(detail.getStartDate())
+                        .endDate(detail.getEndDate())
+                        .eventHours(detail.getEventHours())
+                        .benefits(detail.getBenefits())
+                        .notice(detail.getNotice())
+                        .summary(detail.getSummary())
+                        .introduction(detail.getIntroduction())
+                        .socialLinks(parseSocialLinks(detail.getSocialLinks()))
+                        .images(placeMapper.findEventImagesByPlaceId(id).stream()
+                                .map(image -> EventPlaceResponse.Image.builder()
+                                         .id(image.getId())
+                                         .sortOrder(image.getSortOrder())
+                                         .imageType(image.getImageType())
+                                         .imageUrl(s3ImageService.createPresignedGetUrl(image.getImageKey()))
+                                        .build())
+                                .toList())
+                        .build();
+            }
+        }
         return PlaceResponse.builder()
                 .id(place.getId()).publicId(place.getPublicId())
-                .type(place.getType()).name(place.getName())
+                .type(place.getType()).eventType(place.getEventType()).name(place.getName())
                 .branchName(place.getBranchName()).address(place.getAddress())
                 .locationDetail(place.getLocationDetail())
                 .latitude(place.getLatitude()).longitude(place.getLongitude())
                 .businessHours(place.getBusinessHours()).holidayInfo(place.getHolidayInfo())
                 .phone(place.getPhone()).description(place.getDescription())
-                .imageUrl(place.getImageUrl()).oripaPlace(oripa)
+                .imageUrl(resolvePlaceImageUrl(place)).oripaPlace(oripa).eventPlace(event)
                 .tags(placeMapper.findTagsByPlaceId(id).stream()
                         .map(tag -> TagResponse.builder()
                                 .id(tag.getId())
@@ -222,12 +405,15 @@ public class PlaceService {
             if (placeMapper.findIdForUpdate(id) == null) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
             }
-            List<String> imageKeys = placeMapper.findOripaImagesByPlaceId(id).stream()
-                    .map(image -> image.getImageKey()).distinct().toList();
+            List<String> imageKeys = new ArrayList<>();
+            imageKeys.addAll(placeMapper.findOripaImagesByPlaceId(id).stream()
+                    .map(image -> image.getImageKey()).toList());
+            imageKeys.addAll(placeMapper.findEventImagesByPlaceId(id).stream()
+                    .map(image -> image.getImageKey()).toList());
             if (placeMapper.deletePlace(id) != 1) {
                 throw new IllegalStateException("장소 삭제에 실패했습니다.");
             }
-            return imageKeys;
+            return imageKeys.stream().distinct().toList();
         });
         // 기존 댓글 삭제와 동일하게 DB 커밋 후 S3 객체를 정리한다.
         RuntimeException failure = null;
@@ -254,6 +440,7 @@ public class PlaceService {
                         .id(place.getId())
                         .publicId(place.getPublicId())
                         .type(place.getType())
+                        .eventType(place.getEventType())
                         .name(place.getName())
                         .branchName(place.getBranchName())
                         .address(place.getAddress())
@@ -261,7 +448,7 @@ public class PlaceService {
                         .latitude(place.getLatitude())
                         .longitude(place.getLongitude())
                         .businessHours(place.getBusinessHours())
-                        .imageUrl(place.getImageUrl())
+                        .imageUrl(resolvePlaceImageUrl(place))
                         .holidayInfo(place.getHolidayInfo())
                         .phone(place.getPhone())
                         .description(place.getDescription())
@@ -276,6 +463,7 @@ public class PlaceService {
                         .id(place.getId())
                         .publicId(place.getPublicId())
                         .type(place.getType())
+                        .eventType(place.getEventType())
                         .name(place.getName())
                         .branchName(place.getBranchName())
                         .address(place.getAddress())
@@ -286,12 +474,33 @@ public class PlaceService {
                         .holidayInfo(place.getHolidayInfo())
                         .phone(place.getPhone())
                         .description(place.getDescription())
-                        .imageUrl(place.getImageUrl())
+                        .imageUrl(resolvePlaceImageUrl(place))
                         .build())
                 .toList();
     }
 
+    private String resolvePlaceImageUrl(PlaceVO place) {
+        if (!"EVENT".equals(place.getType())) {
+            return place.getImageUrl();
+        }
+        return place.getEventImageKey() == null
+                ? null
+                : s3ImageService.createPresignedGetUrl(place.getEventImageKey());
+    }
+
+    private void requireLocation(PlaceVO place) {
+        if (place.getAddress() == null || place.getAddress().isBlank()
+                || place.getLatitude() == null || place.getLongitude() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "address, latitude, and longitude are required for this place type.");
+        }
+    }
+
     private void requireOripaManager(MemberVO actor, Long placeId) {
+        requirePlaceManager(actor, placeId);
+    }
+
+    private void requirePlaceManager(MemberVO actor, Long placeId) {
         if (actor == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }

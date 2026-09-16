@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.scoula.place.vo.EventType;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -18,11 +19,18 @@ public class PlaceResponse {
     private OripaPlaceResponse oripaPlace;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    private EventPlaceResponse eventPlace;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private List<TagResponse> tags;
 
     private Long id;
     private String publicId;
     private String type;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private EventType eventType;
+
     private String name;
     private String branchName;
     private String address;

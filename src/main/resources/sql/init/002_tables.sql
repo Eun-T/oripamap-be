@@ -61,20 +61,21 @@ CREATE TABLE places (
 
                         type ENUM(
         'ORIPA',
-        'POKEMON_VENDING'
+        'POKEMON_VENDING',
+        'EVENT'
     ) NOT NULL,
 
                         name VARCHAR(100) NOT NULL,
 
                         branch_name VARCHAR(100),
 
-                        address VARCHAR(255) NOT NULL,
+                        address VARCHAR(255) NULL,
 
                         location_detail VARCHAR(255),
 
-                        latitude DECIMAL(10, 7) NOT NULL,
+                        latitude DECIMAL(10, 7) NULL,
 
-                        longitude DECIMAL(10, 7) NOT NULL,
+                        longitude DECIMAL(10, 7) NULL,
 
                         business_hours VARCHAR(255),
 
@@ -236,5 +237,40 @@ CREATE TABLE oripa_place_images (
                                     CONSTRAINT fk_oripa_place_images
                                         FOREIGN KEY (place_id)
                                             REFERENCES oripa_place(place_id)
+                                            ON DELETE CASCADE
+);
+
+CREATE TABLE event_place (
+                             place_id BIGINT NOT NULL PRIMARY KEY,
+                             event_type ENUM('OFFLINE', 'ONLINE') NOT NULL DEFAULT 'OFFLINE',
+                             start_date DATE NULL,
+                             end_date DATE NULL,
+                             event_hours VARCHAR(255) NULL,
+                             benefits TEXT NULL,
+                             notice TEXT NULL,
+                             summary VARCHAR(255) NULL,
+                             introduction TEXT NULL,
+                             social_links JSON NULL,
+                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP NULL,
+                             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NULL
+                                 ON UPDATE CURRENT_TIMESTAMP,
+
+                             CONSTRAINT fk_event_place
+                                 FOREIGN KEY (place_id)
+                                     REFERENCES places(id)
+                                     ON DELETE CASCADE
+);
+
+CREATE TABLE event_place_images (
+                                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                    place_id BIGINT NOT NULL,
+                                    image_key VARCHAR(500) NOT NULL,
+                                    image_type ENUM('COVER', 'CONTENT') NOT NULL,
+                                    sort_order INT DEFAULT 0 NOT NULL,
+                                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NULL,
+
+                                    CONSTRAINT fk_event_place_images
+                                        FOREIGN KEY (place_id)
+                                            REFERENCES event_place(place_id)
                                             ON DELETE CASCADE
 );

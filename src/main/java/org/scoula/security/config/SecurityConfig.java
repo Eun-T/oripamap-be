@@ -87,6 +87,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         config.addAllowedOrigin("http://localhost");
         config.addAllowedOrigin("https://oripamap.com");
         config.addAllowedOrigin("https://www.oripamap.com");
+        config.addAllowedOrigin("http://192.168.50.146:5173");
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
 
@@ -144,6 +145,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                     .ignoringAntMatchers(
                             "/api/auth/login",
                             "/api/member")
+                    .ignoringRequestMatchers(new AppAuthCsrfRequestMatcher())
                 .and()
                 .formLogin().disable()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
@@ -159,7 +161,9 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
                 .antMatchers(HttpMethod.DELETE, "/api/places/*").hasRole("ADMIN")
                 .antMatchers(HttpMethod.PUT, "/api/admin/inquiries/*/answer").hasRole("ADMIN")
-                .antMatchers(HttpMethod.PUT, "/api/places/*/oripa").hasAnyRole("ADMIN", "OWNER")
+                .antMatchers(HttpMethod.PUT,
+                        "/api/places/*/oripa",
+                        "/api/places/*/event").hasAnyRole("ADMIN", "OWNER")
                 .antMatchers(HttpMethod.POST,
                         "/api/auth/login",
                         "/api/auth/refresh",

@@ -3,6 +3,9 @@ package org.scoula.place.mapper;
 import org.scoula.place.vo.PlaceVO;
 import org.scoula.place.vo.OripaPlaceVO;
 import org.scoula.place.vo.OripaPlaceImageVO;
+import org.scoula.place.vo.EventPlaceVO;
+import org.scoula.place.vo.EventPlaceImageVO;
+import org.scoula.place.vo.EventPlaceImageType;
 import org.scoula.place.vo.TagVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -27,9 +30,15 @@ public interface PlaceMapper {
 
     List<OripaPlaceImageVO> findOripaImagesByPlaceId(Long placeId);
 
+    EventPlaceVO findEventByPlaceId(Long placeId);
+
+    List<EventPlaceImageVO> findEventImagesByPlaceId(Long placeId);
+
     int deletePlace(Long id);
 
     int upsertOripa(OripaPlaceVO detail);
+
+    int upsertEvent(EventPlaceVO detail);
 
     int insertOripaImage(@org.apache.ibatis.annotations.Param("placeId") Long placeId,
                         @org.apache.ibatis.annotations.Param("imageKey") String imageKey,
@@ -41,4 +50,17 @@ public interface PlaceMapper {
 
     int deleteOripaImage(@org.apache.ibatis.annotations.Param("placeId") Long placeId,
                          @org.apache.ibatis.annotations.Param("id") Long id);
+
+    int insertEventImage(@Param("placeId") Long placeId,
+                         @Param("imageKey") String imageKey,
+                         @Param("sortOrder") int sortOrder,
+                         @Param("imageType") EventPlaceImageType imageType);
+
+    int updateEventImageOrder(@Param("placeId") Long placeId,
+                              @Param("id") Long id,
+                              @Param("sortOrder") int sortOrder,
+                              @Param("imageType") EventPlaceImageType imageType);
+
+    int deleteEventImage(@Param("placeId") Long placeId,
+                         @Param("id") Long id);
 }

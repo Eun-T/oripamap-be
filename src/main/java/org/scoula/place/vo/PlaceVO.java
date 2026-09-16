@@ -22,6 +22,8 @@ public class PlaceVO {
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String imageUrl;
+    private String eventImageKey;
+    private EventType eventType;
     private String businessHours;
     private String holidayInfo;
 

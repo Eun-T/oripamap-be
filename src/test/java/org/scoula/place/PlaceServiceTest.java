@@ -13,6 +13,10 @@ import org.scoula.place.service.PlaceService;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.place.vo.OripaPlaceImageVO;
 import org.scoula.place.vo.OripaPlaceVO;
+import org.scoula.place.vo.EventPlaceImageVO;
+import org.scoula.place.vo.EventPlaceImageType;
+import org.scoula.place.vo.EventType;
+import org.scoula.place.vo.EventPlaceVO;
 import org.scoula.place.vo.PlaceVO;
 import org.scoula.place.vo.TagVO;
 import org.springframework.transaction.TransactionDefinition;
@@ -34,6 +38,8 @@ class PlaceServiceTest {
     PlaceVO place = new PlaceVO();
     OripaPlaceVO detail = new OripaPlaceVO();
     List<OripaPlaceImageVO> images = List.of(image(2L, "first", 0), image(1L, "second", 1));
+    EventPlaceVO eventDetail;
+    List<EventPlaceImageVO> eventImages = List.of();
     List<TagVO> tags = List.of(tag(1L, "포켓몬", "TCG"), tag(2L, "매입가능", "SERVICE"));
     boolean failCommit;
     boolean failDelete;
@@ -52,8 +58,15 @@ class PlaceServiceTest {
                     case "findIdForUpdate" -> place == null ? null : 1L;
                     case "findOripaByPlaceId" -> detail;
                     case "findOripaImagesByPlaceId" -> images;
+                    case "findEventByPlaceId" -> eventDetail;
+                    case "findEventImagesByPlaceId" -> eventImages;
                     case "findAll", "searchPlaces" -> List.of(place);
                     case "upsertOripa" -> { detail = (OripaPlaceVO) args[0]; yield 1; }
+                    case "upsertEvent" -> {
+                        eventDetail = (EventPlaceVO) args[0];
+                        place.setEventType(eventDetail.getEventType());
+                        yield 1;
+                    }
                     case "deleteOripaImage" -> {
                         assertEquals(1L, args[0]);
                         images = images.stream().filter(i -> !i.getId().equals(args[1])).toList();
@@ -69,6 +82,25 @@ class PlaceServiceTest {
                         if (failInsert) throw new IllegalStateException("insert failed");
                         images = new ArrayList<>(images);
                         images.add(image(100L + uploads, (String) args[1], (Integer) args[2]));
+                        yield 1;
+                    }
+                    case "deleteEventImage" -> {
+                        eventImages = eventImages.stream().filter(i -> !i.getId().equals(args[1])).toList();
+                        yield 1;
+                    }
+                    case "updateEventImageOrder" -> {
+                        eventImages.stream().filter(i -> i.getId().equals(args[1]))
+                                .forEach(i -> {
+                                    i.setSortOrder((Integer) args[2]);
+                                    i.setImageType((EventPlaceImageType) args[3]);
+                                });
+                        yield 1;
+                    }
+                    case "insertEventImage" -> {
+                        if (failInsert) throw new IllegalStateException("insert failed");
+                        eventImages = new ArrayList<>(eventImages);
+                        eventImages.add(eventImage(200L + uploads, (String) args[1],
+                                (Integer) args[2], (EventPlaceImageType) args[3]));
                         yield 1;
                     }
                     case "deletePlace" -> {
@@ -113,6 +145,9 @@ class PlaceServiceTest {
         place.setId(1L);
         place.setPublicId("6ba7b810-9dad-11d1-80b4-00c04fd430c8");
         place.setType("ORIPA");
+        place.setAddress("Seoul");
+        place.setLatitude(java.math.BigDecimal.valueOf(37.5));
+        place.setLongitude(java.math.BigDecimal.valueOf(127.0));
         place.setImageUrl("https://legacy.test/image.png");
         detail.setPlaceId(1L);
         detail.setSummary("summary");
@@ -132,6 +167,73 @@ class PlaceServiceTest {
         assertFalse(json.get("oripaPlace").get("images").get(0).has("imageKey"));
         assertEquals("포켓몬", json.get("tags").get(0).get("name").asText());
         assertEquals("TCG", json.get("tags").get(0).get("category").asText());
+    }
+
+    @Test void eventDetailReturnsIsoDateStringsAndSignedImages() throws Exception {
+        place.setType("EVENT");
+        place.setEventType(EventType.OFFLINE);
+        place.setEventImageKey("event-first");
+        eventDetail = new EventPlaceVO();
+        eventDetail.setPlaceId(1L);
+        eventDetail.setEventType(EventType.OFFLINE);
+        eventDetail.setStartDate(java.time.LocalDate.of(2026, 10, 1));
+        eventDetail.setEndDate(java.time.LocalDate.of(2026, 10, 3));
+        eventDetail.setEventHours("10:00-18:00");
+        eventDetail.setBenefits("gift");
+        eventDetail.setNotice("Reservation required.");
+        eventDetail.setSummary("event summary");
+        eventDetail.setIntroduction("event introduction");
+        eventDetail.setSocialLinks("[]");
+        eventImages = List.of(eventImage(3L, "event-first", 0));
+
+        PlaceResponse response = service.getPlace(1L);
+
+        assertNull(response.getOripaPlace());
+        assertEquals("https://example.test/event-first", response.getImageUrl());
+        assertEquals(java.time.LocalDate.of(2026, 10, 1), response.getEventPlace().getStartDate());
+        assertEquals(EventType.OFFLINE, response.getEventPlace().getEventType());
+        assertEquals("gift", response.getEventPlace().getBenefits());
+        assertEquals("Reservation required.", response.getEventPlace().getNotice());
+        assertEquals("https://example.test/event-first",
+                response.getEventPlace().getImages().get(0).getImageUrl());
+        assertEquals(EventPlaceImageType.COVER,
+                response.getEventPlace().getImages().get(0).getImageType());
+        assertTrue(response.getEventPlace().getSocialLinks().isArray());
+
+        var mvc = MockMvcBuilders.standaloneSetup(new PlaceController(service)).build();
+        var json = new ObjectMapper().readTree(mvc.perform(get("/api/places/1"))
+                .andReturn().getResponse().getContentAsString());
+        assertTrue(json.get("eventPlace").get("startDate").isTextual());
+        assertEquals("2026-10-01", json.get("eventPlace").get("startDate").asText());
+        assertTrue(json.get("eventPlace").get("endDate").isTextual());
+        assertEquals("2026-10-03", json.get("eventPlace").get("endDate").asText());
+        assertEquals("COVER", json.get("eventPlace").get("images").get(0).get("imageType").asText());
+        assertEquals("OFFLINE", json.get("eventPlace").get("eventType").asText());
+    }
+
+    @Test void eventUpsertUsesManifestAndDeletesOldS3ImageAfterCommit() {
+        place.setType("EVENT");
+        eventImages = List.of(eventImage(10L, "event-old", 0));
+        var data = new org.scoula.place.dto.EventPlaceRequest();
+        data.setStartDate(java.time.LocalDate.of(2026, 10, 1));
+        data.setEndDate(java.time.LocalDate.of(2026, 10, 3));
+        data.setEventHours("10:00-18:00");
+        data.setBenefits("gift");
+        data.setNotice("Reservation required.");
+        data.setSummary("updated event");
+        data.setIntroduction("event intro");
+        data.setSocialLinks(new ObjectMapper().createArrayNode());
+        var newImage = new org.scoula.place.dto.EventPlaceRequest.Image();
+        newImage.setFileIndex(0);
+        newImage.setImageType(EventPlaceImageType.COVER);
+        data.setImages(List.of(newImage));
+
+        PlaceResponse response = service.upsertEvent(1L, data, files(1), admin);
+
+        assertEquals("updated event", response.getEventPlace().getSummary());
+        assertEquals("Reservation required.", response.getEventPlace().getNotice());
+        assertEquals(1, response.getEventPlace().getImages().size());
+        assertTrue(events.indexOf("commit") < events.indexOf("s3:event-old"));
     }
 
     @Test void publicIdDetailReusesNumericIdDetailAndMissingReturns404() {
@@ -167,6 +269,116 @@ class PlaceServiceTest {
         assertEquals(List.of("findAll", "searchPlaces"), events);
     }
 
+    @Test void eventListAndSearchUseOfficialImageWithoutVisitorFallback() {
+        place.setType("EVENT");
+        place.setImageUrl("https://visitor.test/photo.png");
+        place.setEventImageKey("official-poster");
+
+        assertEquals("https://example.test/official-poster", service.getPlaces().get(0).getImageUrl());
+        assertEquals("https://example.test/official-poster",
+                service.searchPlaces("event").get(0).getImageUrl());
+
+        place.setEventImageKey(null);
+        assertNull(service.getPlaces().get(0).getImageUrl());
+    }
+
+    @Test void contentOnlyEventHasNoRepresentativeImageAndReturnsTypedDetailImage() {
+        place.setType("EVENT");
+        place.setImageUrl("https://visitor.test/photo.png");
+        place.setEventImageKey(null);
+        eventDetail = new EventPlaceVO();
+        eventDetail.setPlaceId(1L);
+        eventDetail.setSocialLinks("[]");
+        eventImages = List.of(eventImage(7L, "content-only", 0, EventPlaceImageType.CONTENT));
+
+        PlaceResponse response = service.getPlace(1L);
+
+        assertNull(response.getImageUrl());
+        assertEquals(EventPlaceImageType.CONTENT,
+                response.getEventPlace().getImages().get(0).getImageType());
+        assertEquals("https://example.test/content-only",
+                response.getEventPlace().getImages().get(0).getImageUrl());
+    }
+
+    @Test void offlineEventWithLocationCanBeUpdated() {
+        place.setType("EVENT");
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+
+        PlaceResponse response = service.upsertEvent(1L, data, List.of(), admin);
+
+        assertEquals(EventType.OFFLINE, response.getEventPlace().getEventType());
+    }
+
+    @Test void offlineEventWithoutLocationIsRejected() {
+        place.setType("EVENT");
+        place.setAddress(null);
+        place.setLatitude(null);
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertEvent(1L, data, List.of(), admin)).getRawStatusCode());
+        assertFalse(events.contains("upsertEvent"));
+    }
+
+    @Test void onlineEventWithoutLocationIsReturnedAndIdentifiableInList() {
+        place.setType("EVENT");
+        place.setAddress(null);
+        place.setLatitude(null);
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.ONLINE);
+
+        PlaceResponse response = service.upsertEvent(1L, data, List.of(), admin);
+        PlaceResponse listed = service.getPlaces().get(0);
+
+        assertEquals(EventType.ONLINE, response.getEventPlace().getEventType());
+        assertNull(response.getAddress());
+        assertNull(response.getLatitude());
+        assertNull(response.getLongitude());
+        assertEquals("EVENT", listed.getType());
+        assertEquals(EventType.ONLINE, listed.getEventType());
+    }
+
+    @Test void changingOnlineEventToOfflineWithoutLocationIsRejected() {
+        place.setType("EVENT");
+        place.setEventType(EventType.ONLINE);
+        place.setAddress(null);
+        place.setLatitude(null);
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertEvent(1L, data, List.of(), admin)).getRawStatusCode());
+        assertFalse(events.contains("upsertEvent"));
+    }
+
+    @Test void eventUpsertPreservesExistingTypeAndOrdersWithinEachType() {
+        place.setType("EVENT");
+        eventImages = List.of(eventImage(10L, "content-old", 4, EventPlaceImageType.CONTENT));
+        var data = eventRequest();
+        var retained = new org.scoula.place.dto.EventPlaceRequest.Image();
+        retained.setId(10L); // omitted imageType preserves the stored CONTENT type
+        var added = new org.scoula.place.dto.EventPlaceRequest.Image();
+        added.setFileIndex(0);
+        added.setImageType(EventPlaceImageType.COVER);
+        data.setImages(List.of(retained, added));
+
+        service.upsertEvent(1L, data, files(1), admin);
+
+        assertEquals(EventPlaceImageType.CONTENT, eventImages.stream()
+                .filter(image -> image.getId().equals(10L)).findFirst().orElseThrow().getImageType());
+        assertEquals(0, eventImages.stream()
+                .filter(image -> image.getId().equals(10L)).findFirst().orElseThrow().getSortOrder());
+        assertEquals(EventPlaceImageType.COVER, eventImages.stream()
+                .filter(image -> !image.getId().equals(10L)).findFirst().orElseThrow().getImageType());
+        assertEquals(0, eventImages.stream()
+                .filter(image -> !image.getId().equals(10L)).findFirst().orElseThrow().getSortOrder());
+    }
+
     @Test void missingExtensionDoesNotBreakDetail() {
         detail = null;
         assertNull(service.getPlace(1L).getOripaPlace());
@@ -197,7 +409,8 @@ class PlaceServiceTest {
 
     @Test void deletesImagesOnlyAfterCommit() {
         service.deletePlace(1L, admin);
-        assertEquals(List.of("begin", "findIdForUpdate", "findOripaImagesByPlaceId", "deletePlace",
+        assertEquals(List.of("begin", "findIdForUpdate", "findOripaImagesByPlaceId",
+                "findEventImagesByPlaceId", "deletePlace",
                 "commit", "s3:first", "s3:second"), events);
     }
 
@@ -228,6 +441,16 @@ class PlaceServiceTest {
         assertFalse(events.stream().anyMatch(e -> e.startsWith("s3:")));
     }
 
+    @Test void deletingEventRemovesEventImagesAfterCommit() {
+        place.setType("EVENT");
+        images = List.of();
+        eventImages = List.of(eventImage(10L, "event-image", 0));
+
+        service.deletePlace(1L, admin);
+
+        assertTrue(events.indexOf("commit") < events.indexOf("s3:event-image"));
+    }
+
     @Test void mapperLoadsAndOrdersImagesDeterministically() throws Exception {
         Configuration config = new Configuration();
         String path = "org/scoula/place/mapper/PlaceMapper.xml";
@@ -246,6 +469,40 @@ class PlaceServiceTest {
         String publicIdSql = config.getMappedStatement(PlaceMapper.class.getName() + ".findByPublicId")
                 .getBoundSql("6ba7b810-9dad-11d1-80b4-00c04fd430c8").getSql().replaceAll("\\s+", " ");
         assertTrue(publicIdSql.contains("WHERE public_id = ?"));
+        String eventImageSql = config.getMappedStatement(PlaceMapper.class.getName() + ".findEventImagesByPlaceId")
+                .getBoundSql(1L).getSql().replaceAll("\\s+", " ");
+        assertTrue(eventImageSql.contains("SELECT id, image_key, sort_order, image_type"));
+        assertTrue(eventImageSql.contains("ORDER BY FIELD(image_type, 'COVER', 'CONTENT'), sort_order ASC, id ASC"));
+        for (String statement : List.of("findById", "findAll", "searchPlaces")) {
+            String listSql = config.getMappedStatement(PlaceMapper.class.getName() + "." + statement)
+                    .getBoundSql(statement.equals("searchPlaces") ? "event" : 1L)
+                    .getSql().replaceAll("\\s+", " ");
+            assertTrue(listSql.contains("ep.event_type AS eventType"));
+            assertTrue(listSql.contains("LEFT JOIN event_place ep ON ep.place_id = p.id"));
+        }
+        for (String statement : List.of("findById", "findAll", "searchPlaces")) {
+            String representativeSql = config.getMappedStatement(PlaceMapper.class.getName() + "." + statement)
+                    .getBoundSql(statement.equals("searchPlaces") ? "event" : 1L)
+                    .getSql().replaceAll("\\s+", " ");
+            assertTrue(representativeSql.contains("FROM event_place_images epi"));
+            assertTrue(representativeSql.contains("epi.image_type = 'COVER'"));
+            assertTrue(representativeSql.contains("ORDER BY epi.sort_order ASC, epi.id ASC LIMIT 1"));
+            assertTrue(representativeSql.contains("p.type <> 'EVENT'"));
+        }
+    }
+
+    @Test void eventTypeMigrationBackfillsExistingEventsAndMakesLocationsNullable() throws Exception {
+        String path = "sql/migrations/011_event_type_and_nullable_location.sql";
+        try (var input = getClass().getClassLoader().getResourceAsStream(path)) {
+            assertNotNull(input);
+            String sql = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                    .replaceAll("\\s+", " ");
+            assertTrue(sql.contains("SET event_type = 'OFFLINE' WHERE event_type IS NULL"));
+            assertTrue(sql.contains("event_type ENUM('OFFLINE', 'ONLINE') NOT NULL DEFAULT 'OFFLINE'"));
+            assertTrue(sql.contains("MODIFY COLUMN address VARCHAR(255) NULL"));
+            assertTrue(sql.contains("MODIFY COLUMN latitude DECIMAL(10, 7) NULL"));
+            assertTrue(sql.contains("MODIFY COLUMN longitude DECIMAL(10, 7) NULL"));
+        }
     }
 
     @Test void controllerRoutesDetailSearchAndDelete() throws Exception {
@@ -279,6 +536,26 @@ class PlaceServiceTest {
         image.setImageKey(key);
         image.setSortOrder(order);
         return image;
+    }
+
+    private static EventPlaceImageVO eventImage(Long id, String key, int order) {
+        return eventImage(id, key, order, EventPlaceImageType.COVER);
+    }
+
+    private static EventPlaceImageVO eventImage(Long id, String key, int order, EventPlaceImageType imageType) {
+        EventPlaceImageVO image = new EventPlaceImageVO();
+        image.setId(id);
+        image.setImageKey(key);
+        image.setSortOrder(order);
+        image.setImageType(imageType);
+        return image;
+    }
+
+    private org.scoula.place.dto.EventPlaceRequest eventRequest() {
+        var data = new org.scoula.place.dto.EventPlaceRequest();
+        data.setSocialLinks(new ObjectMapper().createArrayNode());
+        data.setImages(List.of());
+        return data;
     }
 
     private static TagVO tag(Long id, String name, String category) {

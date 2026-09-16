@@ -20,11 +20,40 @@
     <delete id="deleteOripaImage">
         DELETE FROM oripa_place_images WHERE place_id = #{placeId} AND id = #{id}
     </delete>
+    <insert id="upsertEvent">
+        INSERT INTO event_place
+            (place_id, event_type, start_date, end_date, event_hours, benefits, notice, summary, introduction, social_links)
+        VALUES
+            (#{placeId}, #{eventType}, #{startDate}, #{endDate}, #{eventHours}, #{benefits}, #{notice}, #{summary}, #{introduction}, #{socialLinks})
+        ON DUPLICATE KEY UPDATE event_type = VALUES(event_type), start_date = VALUES(start_date),
+            end_date = VALUES(end_date), event_hours = VALUES(event_hours),
+            benefits = VALUES(benefits), notice = VALUES(notice), summary = VALUES(summary),
+            introduction = VALUES(introduction), social_links = VALUES(social_links)
+    </insert>
+    <insert id="insertEventImage">
+        INSERT INTO event_place_images (place_id, image_key, sort_order, image_type)
+        VALUES (#{placeId}, #{imageKey}, #{sortOrder}, #{imageType})
+    </insert>
+    <update id="updateEventImageOrder">
+        UPDATE event_place_images
+        SET sort_order = #{sortOrder}, image_type = #{imageType}
+        WHERE place_id = #{placeId} AND id = #{id}
+    </update>
+    <delete id="deleteEventImage">
+        DELETE FROM event_place_images WHERE place_id = #{placeId} AND id = #{id}
+    </delete>
     <select id="findById" resultType="org.scoula.place.vo.PlaceVO">
-        SELECT p.*,
+        SELECT p.*, ep.event_type AS eventType,
                (SELECT pi.image_url FROM place_images pi WHERE pi.place_id = p.id
-                ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS imageUrl
-        FROM places p WHERE p.id = #{id}
+                  AND p.type &lt;&gt; 'EVENT'
+                ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS imageUrl,
+               (SELECT epi.image_key FROM event_place_images epi WHERE epi.place_id = p.id
+                  AND p.type = 'EVENT'
+                  AND epi.image_type = 'COVER'
+                ORDER BY epi.sort_order ASC, epi.id ASC LIMIT 1) AS eventImageKey
+        FROM places p
+        LEFT JOIN event_place ep ON ep.place_id = p.id
+        WHERE p.id = #{id}
     </select>
 
     <select id="findByPublicId" resultType="org.scoula.place.vo.PlaceVO">
@@ -56,6 +85,18 @@
         ORDER BY sort_order ASC, id ASC
     </select>
 
+    <select id="findEventByPlaceId" resultType="org.scoula.place.vo.EventPlaceVO">
+        SELECT place_id, event_type, start_date, end_date, event_hours, benefits, notice,
+               summary, introduction, social_links
+        FROM event_place WHERE place_id = #{placeId}
+    </select>
+
+    <select id="findEventImagesByPlaceId" resultType="org.scoula.place.vo.EventPlaceImageVO">
+        SELECT id, image_key, sort_order, image_type FROM event_place_images
+        WHERE place_id = #{placeId}
+        ORDER BY FIELD(image_type, 'COVER', 'CONTENT'), sort_order ASC, id ASC
+    </select>
+
     <delete id="deletePlace">
         DELETE FROM places WHERE id = #{id}
     </delete>
@@ -64,6 +105,7 @@
             p.id,
             p.public_id AS publicId,
             p.type,
+            ep.event_type AS eventType,
             p.name,
             p.branch_name AS branchName,
             p.address,
@@ -79,11 +121,22 @@
                 SELECT pi.image_url
                 FROM place_images pi
                 WHERE pi.place_id = p.id
+                  AND p.type &lt;&gt; 'EVENT'
                 ORDER BY pi.sort_order ASC, pi.id ASC
                 LIMIT 1
-            ) AS imageUrl
+            ) AS imageUrl,
+            (
+                SELECT epi.image_key
+                FROM event_place_images epi
+                WHERE epi.place_id = p.id
+                  AND p.type = 'EVENT'
+                  AND epi.image_type = 'COVER'
+                ORDER BY epi.sort_order ASC, epi.id ASC
+                LIMIT 1
+            ) AS eventImageKey
 
         FROM places p
+        LEFT JOIN event_place ep ON ep.place_id = p.id
         ORDER BY p.id
     </select>
 
@@ -92,6 +145,7 @@
             p.id,
             p.public_id AS publicId,
             p.type,
+            ep.event_type AS eventType,
             p.name,
             p.branch_name AS branchName,
             p.address,
@@ -106,10 +160,21 @@
                 SELECT pi.image_url
                 FROM place_images pi
                 WHERE pi.place_id = p.id
+                  AND p.type &lt;&gt; 'EVENT'
                 ORDER BY pi.sort_order ASC, pi.id ASC
                 LIMIT 1
-            ) AS imageUrl
+            ) AS imageUrl,
+            (
+                SELECT epi.image_key
+                FROM event_place_images epi
+                WHERE epi.place_id = p.id
+                  AND p.type = 'EVENT'
+                  AND epi.image_type = 'COVER'
+                ORDER BY epi.sort_order ASC, epi.id ASC
+                LIMIT 1
+            ) AS eventImageKey
         FROM places p
+        LEFT JOIN event_place ep ON ep.place_id = p.id
         WHERE p.name LIKE CONCAT('%', #{keyword}, '%')
            OR p.branch_name LIKE CONCAT('%', #{keyword}, '%')
         ORDER BY p.id

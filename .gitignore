@@ -45,3 +45,6 @@ bin/
 
 src/main/resources/application-secret.properties
 .env
+
+# Local Docker/OCI image export
+/oripa-backend.tar

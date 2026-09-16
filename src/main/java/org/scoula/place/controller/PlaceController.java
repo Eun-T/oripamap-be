@@ -3,6 +3,7 @@ package org.scoula.place.controller;
 import lombok.RequiredArgsConstructor;
 import org.scoula.place.dto.PlaceResponse;
 import org.scoula.place.dto.OripaPlaceRequest;
+import org.scoula.place.dto.EventPlaceRequest;
 import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -35,6 +36,17 @@ public class PlaceController {
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal CustomUser user) {
         return placeService.upsertOripa(
+                placeId, data, files == null ? List.of() : files,
+                user == null ? null : user.getMember());
+    }
+
+    @PutMapping(value = "/{placeId}/event", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public PlaceResponse upsertEvent(
+            @PathVariable("placeId") Long placeId,
+            @RequestPart("data") EventPlaceRequest data,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal CustomUser user) {
+        return placeService.upsertEvent(
                 placeId, data, files == null ? List.of() : files,
                 user == null ? null : user.getMember());
     }
