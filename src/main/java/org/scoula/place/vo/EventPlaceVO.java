@@ -10,6 +10,7 @@ import java.time.LocalDate;
 public class EventPlaceVO {
     private Long placeId;
     private EventType eventType;
+    private String countryCode;
     private LocalDate startDate;
     private LocalDate endDate;
     private String eventHours;

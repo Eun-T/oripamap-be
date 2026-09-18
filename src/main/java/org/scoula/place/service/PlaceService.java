@@ -169,6 +169,10 @@ public class PlaceService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "images and socialLinks must be arrays.");
         }
+        if (data.getCountryCode() != null && !data.getCountryCode().matches("[A-Z]{2}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "countryCode must be a two-letter uppercase ISO 3166-1 alpha-2 code.");
+        }
         Set<Long> retained = new HashSet<>();
         Set<Integer> indexes = new HashSet<>();
         for (EventPlaceRequest.Image image : data.getImages()) {
@@ -217,9 +221,10 @@ public class PlaceService {
                 EventType eventType = data.getEventType() != null
                         ? data.getEventType()
                         : Objects.requireNonNullElse(place.getEventType(), EventType.OFFLINE);
-                if (eventType == EventType.OFFLINE) {
-                    requireLocation(place);
-                }
+                String countryCode = data.isCountryCodePresent()
+                        ? data.getCountryCode()
+                        : place.getCountryCode();
+                validateEventLocation(place, eventType, countryCode);
                 var existing = placeMapper.findEventImagesByPlaceId(placeId);
                 Set<Long> owned = new HashSet<>();
                 existing.forEach(image -> owned.add(image.getId()));
@@ -234,6 +239,7 @@ public class PlaceService {
                 EventPlaceVO detail = new EventPlaceVO();
                 detail.setPlaceId(placeId);
                 detail.setEventType(eventType);
+                detail.setCountryCode(countryCode);
                 detail.setStartDate(data.getStartDate());
                 detail.setEndDate(data.getEndDate());
                 detail.setEventHours(data.getEventHours());
@@ -337,6 +343,7 @@ public class PlaceService {
                 event = EventPlaceResponse.builder()
                         .placeId(detail.getPlaceId())
                         .eventType(detail.getEventType())
+                        .countryCode(detail.getCountryCode())
                         .startDate(detail.getStartDate())
                         .endDate(detail.getEndDate())
                         .eventHours(detail.getEventHours())
@@ -358,7 +365,8 @@ public class PlaceService {
         }
         return PlaceResponse.builder()
                 .id(place.getId()).publicId(place.getPublicId())
-                .type(place.getType()).eventType(place.getEventType()).name(place.getName())
+                .type(place.getType()).eventType(place.getEventType())
+                .countryCode(place.getCountryCode()).name(place.getName())
                 .branchName(place.getBranchName()).address(place.getAddress())
                 .locationDetail(place.getLocationDetail())
                 .latitude(place.getLatitude()).longitude(place.getLongitude())
@@ -441,6 +449,7 @@ public class PlaceService {
                         .publicId(place.getPublicId())
                         .type(place.getType())
                         .eventType(place.getEventType())
+                        .countryCode(place.getCountryCode())
                         .name(place.getName())
                         .branchName(place.getBranchName())
                         .address(place.getAddress())
@@ -464,6 +473,7 @@ public class PlaceService {
                         .publicId(place.getPublicId())
                         .type(place.getType())
                         .eventType(place.getEventType())
+                        .countryCode(place.getCountryCode())
                         .name(place.getName())
                         .branchName(place.getBranchName())
                         .address(place.getAddress())
@@ -493,6 +503,27 @@ public class PlaceService {
                 || place.getLatitude() == null || place.getLongitude() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "address, latitude, and longitude are required for this place type.");
+        }
+    }
+
+    private void validateEventLocation(PlaceVO place, EventType eventType, String countryCode) {
+        boolean hasLatitude = place.getLatitude() != null;
+        boolean hasLongitude = place.getLongitude() != null;
+        if (hasLatitude != hasLongitude) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "latitude and longitude must be provided together.");
+        }
+
+        if (eventType != EventType.OFFLINE) {
+            return;
+        }
+        if (place.getAddress() == null || place.getAddress().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "address is required for offline events.");
+        }
+        if ((countryCode == null || "KR".equals(countryCode)) && !hasLatitude) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "latitude and longitude are required for domestic offline events.");
         }
     }
 

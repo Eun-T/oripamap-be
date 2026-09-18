@@ -32,6 +32,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CharacterEncodingFilter;
 import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 @EnableWebSecurity
@@ -43,7 +44,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @ComponentScan(basePackages  = {"org.scoula.security"})
 @RequiredArgsConstructor
 public class SecurityConfig  extends WebSecurityConfigurerAdapter {
-
+    @Value("${csrf.cookie-domain:}")
+    private String csrfCookieDomain;
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthenticationErrorFilter authenticationErrorFilter;
@@ -121,6 +123,13 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
     @Override
     public void configure(HttpSecurity http) throws Exception {
 
+        CookieCsrfTokenRepository csrfTokenRepository =
+                CookieCsrfTokenRepository.withHttpOnlyFalse();
+
+        if (csrfCookieDomain != null && !csrfCookieDomain.isBlank()) {
+            csrfTokenRepository.setCookieDomain(csrfCookieDomain);
+        }
+
         http.cors()
                 .configurationSource(corsConfigurationSource());
 
@@ -131,8 +140,8 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .addFilterBefore(jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(
-                    jwtUsernamePasswordAuthenticationFilter,
-                    UsernamePasswordAuthenticationFilter.class);
+                        jwtUsernamePasswordAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class);
 
         http
                 .exceptionHandling()
@@ -141,67 +150,16 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
 
         http.httpBasic().disable()
                 .csrf()
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                    .ignoringAntMatchers(
-                            "/api/auth/login",
-                            "/api/member")
-                    .ignoringRequestMatchers(new AppAuthCsrfRequestMatcher())
+                .csrfTokenRepository(csrfTokenRepository)
+                .ignoringAntMatchers(
+                        "/api/auth/login",
+                        "/api/member")
+                .ignoringRequestMatchers(new AppAuthCsrfRequestMatcher())
                 .and()
                 .formLogin().disable()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
-        //role별 접근 권한 설정
-//        http.authorizeRequests()
-//                .antMatchers("/security/all").permitAll()
-//                .antMatchers("/security/admin").access("hasRole('ADMIN')")
-//                .antMatchers("/security/member").access("hasAnyRole('ADMIN', 'USER')");
-
-        http
-                .authorizeRequests() // 경로별 접근 권한 설정
-                .antMatchers(HttpMethod.OPTIONS).permitAll()
-                .antMatchers(HttpMethod.DELETE, "/api/places/*").hasRole("ADMIN")
-                .antMatchers(HttpMethod.PUT, "/api/admin/inquiries/*/answer").hasRole("ADMIN")
-                .antMatchers(HttpMethod.PUT,
-                        "/api/places/*/oripa",
-                        "/api/places/*/event").hasAnyRole("ADMIN", "OWNER")
-                .antMatchers(HttpMethod.POST,
-                        "/api/auth/login",
-                        "/api/auth/refresh",
-                        "/api/auth/logout",
-                        "/api/member").permitAll()
-                .antMatchers(HttpMethod.GET,
-                        "/api/auth/kakao",
-                        "/api/auth/kakao/callback",
-                        "/api/auth/naver",
-                        "/api/auth/naver/callback",
-                        "/api/places",
-                        "/api/places/search",
-                        "/api/places/public/*",
-                        "/api/places/*",
-                        "/api/comments/place/*",
-                        "/api/comments/place/*/photos",
-                        "/api/member/checkemail/*",
-                        "/api/member/checkusername/*").permitAll()
-                .anyRequest().authenticated();
-
-        // 기본 로그인 화면 다시 활성화
-        // http.formLogin();
-
-        // 커스텀한 로그인 화면 설정
-        http.formLogin()
-                .loginPage("/security/login")
-                .loginProcessingUrl("/security/login")
-                .defaultSuccessUrl("/");
-
-        http.logout() // 로그아웃설정시작
-                .logoutUrl("/security/logout") // POST: 로그아웃 호출 url
-                .invalidateHttpSession(true) // 세션 invalidate
-                .deleteCookies("remember-me", "JSESSION-ID") // 삭제할 쿠키 목록
-                .logoutSuccessUrl("/security/logout"); // GET: 로그아웃 이후이동할페이지
-
     }
-
-
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {

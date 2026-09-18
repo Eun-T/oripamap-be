@@ -763,3 +763,272 @@ POST /api/auth/logout → 204 No Content
 - 앱 전용 요청을 구분하기 위해 X-Client-Type: APP 헤더를 사용했다.
 - CSRF 전체를 끄는 대신 앱의 특정 요청에만 조건부 예외를 적용했다.
 - 서버 요청이 실패했는데 프론트 상태만 바꾸면 서버와 클라이언트 인증 상태가 어긋날 수 있다.
+
+
+ORIPA / 자판기     → 주소 + 좌표 필수
+국내 OFFLINE       → 주소 + 좌표 필수
+해외 OFFLINE       → 주소 필수 / 좌표 선택
+ONLINE             → 위치 전부 선택
+
+
+----------------------------------------------------------------------------
+## 트러블슈팅 - 운영 환경 로그아웃 403 / CSRF 토큰 불일치
+----------------------------------------------------------------------------
+
+### 문제 상황
+
+운영 환경 구조:
+
+- Frontend: https://oripamap.com
+- Backend API: https://api.oripamap.com
+- 인증: JWT HttpOnly Cookie
+- CSRF: Spring Security `CookieCsrfTokenRepository`
+- Frontend HTTP Client: Axios
+
+로그인은 정상적으로 성공했지만 로그아웃 요청에서 계속 `403 Forbidden` 발생.
+
+POST /api/auth/logout
+→ 403 Forbidden
+
+
+### 1. 처음 확인한 문제 - X-XSRF-TOKEN 헤더가 전송되지 않음
+
+브라우저에는 `XSRF-TOKEN` 쿠키가 존재했지만 Axios의 로그아웃 요청에는
+
+X-XSRF-TOKEN
+
+헤더가 없었음.
+
+Axios 설정 자체는 다음과 같이 정상적으로 되어 있었음.
+
+const api = axios.create({
+baseURL: import.meta.env.VITE_API_BASE_URL || '',
+timeout: 10000,
+withCredentials: true,
+withXSRFToken: true,
+xsrfCookieName: 'XSRF-TOKEN',
+xsrfHeaderName: 'X-XSRF-TOKEN',
+})
+
+원인은 프론트와 API가 서로 다른 서브도메인을 사용하고 있었기 때문.
+
+프론트:
+oripamap.com
+
+API:
+api.oripamap.com
+
+기존 XSRF-TOKEN은 API 호스트 전용(host-only) 쿠키로 발급되어
+oripamap.com에서 실행되는 JavaScript가 해당 쿠키를 읽을 수 없었음.
+
+실제로 프론트에서:
+
+document.cookie
+
+를 실행했을 때 XSRF-TOKEN이 나오지 않았음.
+
+따라서 Axios가 XSRF-TOKEN을 읽어서 X-XSRF-TOKEN 헤더로 복사할 수 없었음.
+
+
+### 2. 해결 - CSRF 쿠키 Domain 설정
+
+Spring Security의 CookieCsrfTokenRepository에 쿠키 Domain을 지정하도록 설정.
+
+application.properties:
+
+csrf.cookie-domain=${CSRF_COOKIE_DOMAIN:}
+
+SecurityConfig:
+
+@Value("${csrf.cookie-domain:}")
+private String csrfCookieDomain;
+
+CookieCsrfTokenRepository csrfTokenRepository =
+CookieCsrfTokenRepository.withHttpOnlyFalse();
+
+if (csrfCookieDomain != null && !csrfCookieDomain.isBlank()) {
+csrfTokenRepository.setCookieDomain(csrfCookieDomain);
+}
+
+운영 환경:
+
+CSRF_COOKIE_DOMAIN=oripamap.com
+
+이렇게 설정하면 XSRF-TOKEN이 특정 API 호스트 전용 쿠키가 아니라
+oripamap.com과 api.oripamap.com에서 사용할 수 있는 Domain Cookie로 발급됨.
+
+
+### 3. 주의 - `.oripamap.com` 사용 시 Tomcat 500 발생
+
+처음에는 다음처럼 설정했음.
+
+CSRF_COOKIE_DOMAIN=.oripamap.com
+
+그러자 모든 API 요청에서 500 Internal Server Error 발생.
+
+Tomcat 에러:
+
+java.lang.IllegalArgumentException:
+An invalid domain [.oripamap.com] was specified for this cookie
+
+Rfc6265CookieProcessor.validateDomain(...)
+
+현재 Tomcat의 RFC6265 쿠키 검증에서 앞에 `.`이 붙은 Domain 값을 거부함.
+
+따라서:
+
+CSRF_COOKIE_DOMAIN=.oripamap.com
+
+이 아니라:
+
+CSRF_COOKIE_DOMAIN=oripamap.com
+
+으로 설정.
+
+앞의 `.` 없이 Domain을 지정해도 하위 도메인인 api.oripamap.com에 함께 적용되는 Domain Cookie로 사용할 수 있음.
+
+
+### 4. X-XSRF-TOKEN 헤더가 생겼는데도 로그아웃 403 발생
+
+Domain 수정 후 Axios 요청에서 드디어 다음 헤더가 정상적으로 전송됨.
+
+X-XSRF-TOKEN: 71f64ab8-...
+
+하지만 로그아웃은 여전히:
+
+POST /api/auth/logout
+→ 403 Forbidden
+
+서버 로그 확인 결과:
+
+InvalidCsrfTokenException
+
+즉 이번에는 "CSRF 토큰이 없음"이 아니라
+"전송된 CSRF 토큰이 서버가 확인한 토큰과 다름" 문제였음.
+
+
+### 5. 최종 원인 - XSRF-TOKEN 쿠키가 2개 존재
+
+Chrome DevTools의 Application → Cookies를 확인해보니
+동일한 이름의 XSRF-TOKEN 쿠키가 2개 존재했음.
+
+기존 쿠키:
+XSRF-TOKEN
+Domain = api.oripamap.com
+
+새 쿠키:
+XSRF-TOKEN
+Domain = oripamap.com
+
+즉 Domain 설정을 변경하기 전에 발급된 host-only 쿠키가 브라우저에 남아 있었고,
+새로운 Domain Cookie가 추가되면서 같은 이름의 쿠키가 동시에 존재하게 됨.
+
+Axios는 한 XSRF-TOKEN 값을 읽어서:
+
+X-XSRF-TOKEN: A
+
+를 전송했지만 Spring Security에서는 요청의 다른 XSRF-TOKEN 쿠키:
+
+XSRF-TOKEN=B
+
+를 기준으로 검증할 수 있었음.
+
+결과:
+
+Header Token != Cookie Token
+
+→ InvalidCsrfTokenException
+→ 403 Forbidden
+
+
+### 6. 최종 해결
+
+Chrome DevTools:
+
+Application
+→ Cookies
+→ 기존 XSRF-TOKEN 쿠키 전부 삭제
+→ 페이지 새로고침
+
+이후 서버에서 새로운 XSRF-TOKEN을 다시 발급받음.
+
+최종적으로 XSRF-TOKEN이 하나만 존재하고:
+
+Domain = oripamap.com
+Path = /
+
+상태가 됨.
+
+Axios 요청:
+
+Cookie:
+XSRF-TOKEN=<token>
+
+Header:
+X-XSRF-TOKEN=<token>
+
+두 값이 동일해지면서 Spring Security CSRF 검증 통과.
+
+POST /api/auth/logout
+→ 정상 처리
+
+
+### 최종 정리
+
+운영 환경:
+
+oripamap.com
+↓ Axios
+api.oripamap.com
+
+CSRF 쿠키 설정:
+
+CSRF_COOKIE_DOMAIN=oripamap.com
+
+Spring Security:
+
+CookieCsrfTokenRepository.withHttpOnlyFalse()
+↓
+setCookieDomain("oripamap.com")
+↓
+XSRF-TOKEN Domain Cookie 발급
+
+Axios:
+
+XSRF-TOKEN Cookie
+↓
+X-XSRF-TOKEN Header로 복사
+↓
+POST /api/auth/logout
+
+Spring Security:
+
+Cookie Token == Header Token
+↓
+CSRF 검증 성공
+↓
+로그아웃 성공
+
+
+### 핵심 교훈
+
+1. 프론트와 API가 서브도메인으로 분리되어 있다면 CSRF Cookie Domain 범위를 확인할 것.
+
+2. XSRF-TOKEN이 API host-only 쿠키이면 프론트 JavaScript에서 읽지 못해 Axios가 X-XSRF-TOKEN 헤더를 만들지 못할 수 있음.
+
+3. Tomcat 환경에서는 `.oripamap.com` 대신 `oripamap.com`처럼 앞의 점 없이 Domain을 지정할 것.
+
+4. X-XSRF-TOKEN 헤더가 존재하는데도 InvalidCsrfTokenException이 발생한다면 토큰 "존재 여부"가 아니라 "값 불일치"를 확인할 것.
+
+5. 쿠키 Domain 정책을 변경한 뒤에는 기존 host-only 쿠키가 브라우저에 남아 동일 이름의 쿠키가 중복될 수 있음.
+
+6. DevTools → Application → Cookies에서 동일한 이름의 XSRF-TOKEN이 여러 개 존재하는지 확인할 것.
+
+7. CSRF 문제 디버깅 시 다음 순서로 확인하면 빠름.
+
+   XSRF-TOKEN 쿠키 존재 여부
+   → document.cookie에서 접근 가능한지
+   → X-XSRF-TOKEN 요청 헤더 존재 여부
+   → 서버의 InvalidCsrfTokenException 여부
+   → 동일 이름 XSRF-TOKEN 쿠키 중복 여부
+   → Cookie Token과 Header Token 값 일치 여부

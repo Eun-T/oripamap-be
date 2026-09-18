@@ -5,6 +5,7 @@ import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.Test;
 import org.scoula.common.service.S3ImageService;
+import org.scoula.place.dto.EventPlaceRequest;
 import org.scoula.place.dto.PlaceResponse;
 import org.scoula.place.controller.PlaceController;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -65,6 +66,7 @@ class PlaceServiceTest {
                     case "upsertEvent" -> {
                         eventDetail = (EventPlaceVO) args[0];
                         place.setEventType(eventDetail.getEventType());
+                        place.setCountryCode(eventDetail.getCountryCode());
                         yield 1;
                     }
                     case "deleteOripaImage" -> {
@@ -176,6 +178,7 @@ class PlaceServiceTest {
         eventDetail = new EventPlaceVO();
         eventDetail.setPlaceId(1L);
         eventDetail.setEventType(EventType.OFFLINE);
+        eventDetail.setCountryCode("KR");
         eventDetail.setStartDate(java.time.LocalDate.of(2026, 10, 1));
         eventDetail.setEndDate(java.time.LocalDate.of(2026, 10, 3));
         eventDetail.setEventHours("10:00-18:00");
@@ -192,6 +195,7 @@ class PlaceServiceTest {
         assertEquals("https://example.test/event-first", response.getImageUrl());
         assertEquals(java.time.LocalDate.of(2026, 10, 1), response.getEventPlace().getStartDate());
         assertEquals(EventType.OFFLINE, response.getEventPlace().getEventType());
+        assertEquals("KR", response.getEventPlace().getCountryCode());
         assertEquals("gift", response.getEventPlace().getBenefits());
         assertEquals("Reservation required.", response.getEventPlace().getNotice());
         assertEquals("https://example.test/event-first",
@@ -209,6 +213,7 @@ class PlaceServiceTest {
         assertEquals("2026-10-03", json.get("eventPlace").get("endDate").asText());
         assertEquals("COVER", json.get("eventPlace").get("images").get(0).get("imageType").asText());
         assertEquals("OFFLINE", json.get("eventPlace").get("eventType").asText());
+        assertEquals("KR", json.get("eventPlace").get("countryCode").asText());
     }
 
     @Test void eventUpsertUsesManifestAndDeletesOldS3ImageAfterCommit() {
@@ -323,6 +328,109 @@ class PlaceServiceTest {
         assertFalse(events.contains("upsertEvent"));
     }
 
+    @Test void domesticOfflineEventWithoutCoordinatesIsRejected() {
+        place.setType("EVENT");
+        place.setLatitude(null);
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+        data.setCountryCode("KR");
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertEvent(1L, data, List.of(), admin)).getRawStatusCode());
+        assertFalse(events.contains("upsertEvent"));
+    }
+
+    @Test void offlineEventWithoutCountryCodeIsDomesticAndRequiresCoordinates() {
+        place.setType("EVENT");
+        place.setLatitude(null);
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertEvent(1L, data, List.of(), admin)).getRawStatusCode());
+        assertFalse(events.contains("upsertEvent"));
+    }
+
+    @Test void foreignOfflineEventWithAddressCanOmitCoordinates() {
+        place.setType("EVENT");
+        place.setLatitude(null);
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+        data.setCountryCode("FR");
+
+        PlaceResponse response = service.upsertEvent(1L, data, List.of(), admin);
+
+        assertEquals(EventType.OFFLINE, response.getEventPlace().getEventType());
+        assertEquals("FR", response.getEventPlace().getCountryCode());
+        assertNull(response.getLatitude());
+        assertNull(response.getLongitude());
+    }
+
+    @Test void partialImageUpdatePreservesExistingForeignOfflineClassification() throws Exception {
+        place.setId(147L);
+        place.setType("EVENT");
+        place.setEventType(EventType.OFFLINE);
+        place.setCountryCode("FR");
+        place.setLatitude(null);
+        place.setLongitude(null);
+        eventImages = List.of(eventImage(147L, "official-image", 0));
+        var data = new ObjectMapper().readValue(
+                "{\"socialLinks\":[],\"images\":[{\"id\":147}]}", EventPlaceRequest.class);
+
+        assertFalse(data.isCountryCodePresent());
+        assertNull(data.getEventType());
+
+        PlaceResponse response = service.upsertEvent(147L, data, List.of(), admin);
+
+        assertEquals(EventType.OFFLINE, eventDetail.getEventType());
+        assertEquals("FR", eventDetail.getCountryCode());
+        assertEquals(EventType.OFFLINE, response.getEventPlace().getEventType());
+        assertEquals("FR", response.getEventPlace().getCountryCode());
+        assertNull(response.getLatitude());
+        assertNull(response.getLongitude());
+    }
+
+    @Test void foreignOfflineEventRejectsOnlyOneCoordinate() {
+        place.setType("EVENT");
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+        data.setCountryCode("FR");
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertEvent(1L, data, List.of(), admin)).getRawStatusCode());
+        assertFalse(events.contains("upsertEvent"));
+    }
+
+    @Test void foreignOfflineEventAcceptsBothCoordinates() {
+        place.setType("EVENT");
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+        data.setCountryCode("FR");
+
+        PlaceResponse response = service.upsertEvent(1L, data, List.of(), admin);
+
+        assertEquals("FR", response.getEventPlace().getCountryCode());
+        assertNotNull(response.getLatitude());
+        assertNotNull(response.getLongitude());
+    }
+
+    @Test void foreignOfflineEventStillRequiresAddress() {
+        place.setType("EVENT");
+        place.setAddress(null);
+        place.setLatitude(null);
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.OFFLINE);
+        data.setCountryCode("FR");
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertEvent(1L, data, List.of(), admin)).getRawStatusCode());
+    }
+
     @Test void onlineEventWithoutLocationIsReturnedAndIdentifiableInList() {
         place.setType("EVENT");
         place.setAddress(null);
@@ -330,16 +438,48 @@ class PlaceServiceTest {
         place.setLongitude(null);
         var data = eventRequest();
         data.setEventType(EventType.ONLINE);
+        data.setCountryCode("JP");
 
         PlaceResponse response = service.upsertEvent(1L, data, List.of(), admin);
         PlaceResponse listed = service.getPlaces().get(0);
 
         assertEquals(EventType.ONLINE, response.getEventPlace().getEventType());
+        assertEquals("JP", response.getEventPlace().getCountryCode());
         assertNull(response.getAddress());
         assertNull(response.getLatitude());
         assertNull(response.getLongitude());
         assertEquals("EVENT", listed.getType());
         assertEquals(EventType.ONLINE, listed.getEventType());
+        assertEquals("JP", listed.getCountryCode());
+    }
+
+    @Test void onlineEventRejectsOnlyOneCoordinate() {
+        place.setType("EVENT");
+        place.setLongitude(null);
+        var data = eventRequest();
+        data.setEventType(EventType.ONLINE);
+        data.setCountryCode("JP");
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertEvent(1L, data, List.of(), admin)).getRawStatusCode());
+    }
+
+    @Test void eventCountryCodeIsNullableAndRejectsInvalidValues() {
+        place.setType("EVENT");
+        var nullable = eventRequest();
+        nullable.setEventType(EventType.OFFLINE);
+        assertNull(service.upsertEvent(1L, nullable, List.of(), admin)
+                .getEventPlace().getCountryCode());
+
+        for (String invalid : List.of("", "jp", "J", "JPN", "J1")) {
+            events.clear();
+            var data = eventRequest();
+            data.setEventType(EventType.ONLINE);
+            data.setCountryCode(invalid);
+            assertEquals(400, assertThrows(ResponseStatusException.class,
+                    () -> service.upsertEvent(1L, data, List.of(), admin)).getRawStatusCode());
+            assertTrue(events.isEmpty());
+        }
     }
 
     @Test void changingOnlineEventToOfflineWithoutLocationIsRejected() {
@@ -478,6 +618,7 @@ class PlaceServiceTest {
                     .getBoundSql(statement.equals("searchPlaces") ? "event" : 1L)
                     .getSql().replaceAll("\\s+", " ");
             assertTrue(listSql.contains("ep.event_type AS eventType"));
+            assertTrue(listSql.contains("ep.country_code AS countryCode"));
             assertTrue(listSql.contains("LEFT JOIN event_place ep ON ep.place_id = p.id"));
         }
         for (String statement : List.of("findById", "findAll", "searchPlaces")) {
@@ -502,6 +643,16 @@ class PlaceServiceTest {
             assertTrue(sql.contains("MODIFY COLUMN address VARCHAR(255) NULL"));
             assertTrue(sql.contains("MODIFY COLUMN latitude DECIMAL(10, 7) NULL"));
             assertTrue(sql.contains("MODIFY COLUMN longitude DECIMAL(10, 7) NULL"));
+        }
+    }
+
+    @Test void countryCodeMigrationAddsNullableColumnAfterEventType() throws Exception {
+        String path = "sql/migrations/012_event_country_code.sql";
+        try (var input = getClass().getClassLoader().getResourceAsStream(path)) {
+            assertNotNull(input);
+            String sql = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                    .replaceAll("\\s+", " ");
+            assertTrue(sql.contains("ADD COLUMN country_code CHAR(2) NULL AFTER event_type"));
         }
     }
 
@@ -640,6 +791,25 @@ class PlaceServiceTest {
         place = null;
         assertEquals(404, assertThrows(ResponseStatusException.class,
                 () -> service.upsertOripa(1L, data, List.of(), admin)).getRawStatusCode());
+        assertFalse(events.contains("upsertOripa"));
+    }
+
+    @Test void oripaWithoutCoordinatesIsRejected() throws Exception {
+        place.setLatitude(null);
+        place.setLongitude(null);
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertOripa(1L, request("[]"), List.of(), admin)).getRawStatusCode());
+        assertFalse(events.contains("upsertOripa"));
+    }
+
+    @Test void pokemonVendingWithoutCoordinatesIsRejectedByPlaceUpdateBoundary() throws Exception {
+        place.setType("POKEMON_VENDING");
+        place.setLatitude(null);
+        place.setLongitude(null);
+
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upsertOripa(1L, request("[]"), List.of(), admin)).getRawStatusCode());
         assertFalse(events.contains("upsertOripa"));
     }
 

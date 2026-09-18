@@ -24,6 +24,7 @@ public class PlaceVO {
     private String imageUrl;
     private String eventImageKey;
     private EventType eventType;
+    private String countryCode;
     private String businessHours;
     private String holidayInfo;
 

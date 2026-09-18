@@ -22,10 +22,11 @@
     </delete>
     <insert id="upsertEvent">
         INSERT INTO event_place
-            (place_id, event_type, start_date, end_date, event_hours, benefits, notice, summary, introduction, social_links)
+            (place_id, event_type, country_code, start_date, end_date, event_hours, benefits, notice, summary, introduction, social_links)
         VALUES
-            (#{placeId}, #{eventType}, #{startDate}, #{endDate}, #{eventHours}, #{benefits}, #{notice}, #{summary}, #{introduction}, #{socialLinks})
-        ON DUPLICATE KEY UPDATE event_type = VALUES(event_type), start_date = VALUES(start_date),
+            (#{placeId}, #{eventType}, #{countryCode}, #{startDate}, #{endDate}, #{eventHours}, #{benefits}, #{notice}, #{summary}, #{introduction}, #{socialLinks})
+        ON DUPLICATE KEY UPDATE event_type = VALUES(event_type), country_code = VALUES(country_code),
+            start_date = VALUES(start_date),
             end_date = VALUES(end_date), event_hours = VALUES(event_hours),
             benefits = VALUES(benefits), notice = VALUES(notice), summary = VALUES(summary),
             introduction = VALUES(introduction), social_links = VALUES(social_links)
@@ -43,7 +44,7 @@
         DELETE FROM event_place_images WHERE place_id = #{placeId} AND id = #{id}
     </delete>
     <select id="findById" resultType="org.scoula.place.vo.PlaceVO">
-        SELECT p.*, ep.event_type AS eventType,
+        SELECT p.*, ep.event_type AS eventType, ep.country_code AS countryCode,
                (SELECT pi.image_url FROM place_images pi WHERE pi.place_id = p.id
                   AND p.type &lt;&gt; 'EVENT'
                 ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS imageUrl,
@@ -86,7 +87,7 @@
     </select>
 
     <select id="findEventByPlaceId" resultType="org.scoula.place.vo.EventPlaceVO">
-        SELECT place_id, event_type, start_date, end_date, event_hours, benefits, notice,
+        SELECT place_id, event_type, country_code, start_date, end_date, event_hours, benefits, notice,
                summary, introduction, social_links
         FROM event_place WHERE place_id = #{placeId}
     </select>
@@ -106,6 +107,7 @@
             p.public_id AS publicId,
             p.type,
             ep.event_type AS eventType,
+            ep.country_code AS countryCode,
             p.name,
             p.branch_name AS branchName,
             p.address,
@@ -146,6 +148,7 @@
             p.public_id AS publicId,
             p.type,
             ep.event_type AS eventType,
+            ep.country_code AS countryCode,
             p.name,
             p.branch_name AS branchName,
             p.address,

@@ -31,6 +31,9 @@ public class PlaceResponse {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private EventType eventType;
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String countryCode;
+
     private String name;
     private String branchName;
     private String address;

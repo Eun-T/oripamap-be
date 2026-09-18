@@ -15,6 +15,7 @@ import java.util.List;
 public class EventPlaceResponse {
     private Long placeId;
     private EventType eventType;
+    private String countryCode;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate startDate;

@@ -47,4 +47,8 @@ src/main/resources/application-secret.properties
 .env
 
 # Local Docker/OCI image export
-/oripa-backend.tar
+/oripa-backend*.tar
+
+# Local deployment/build artifacts
+/docker-ROOT.war
+/WEB-INF/

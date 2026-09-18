@@ -243,6 +243,7 @@ CREATE TABLE oripa_place_images (
 CREATE TABLE event_place (
                              place_id BIGINT NOT NULL PRIMARY KEY,
                              event_type ENUM('OFFLINE', 'ONLINE') NOT NULL DEFAULT 'OFFLINE',
+                             country_code CHAR(2) NULL,
                              start_date DATE NULL,
                              end_date DATE NULL,
                              event_hours VARCHAR(255) NULL,
