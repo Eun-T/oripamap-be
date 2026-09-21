@@ -28,9 +28,12 @@ class CommentFixture {
     List<CommentVO> parents = List.of();
     List<CommentVO> replies = List.of();
     List<CommentVO> photos = List.of();
+    List<CommentVO> recent = List.of();
     List<Long> queriedParentIds = List.of();
     long queryOffset;
     int queryLimit;
+    LocalDateTime recentCursorCreatedAt;
+    Long recentCursorId;
     long totalCount;
     Object[] insertArgs;
     CommentVO created;
@@ -69,6 +72,12 @@ class CommentFixture {
                         queryOffset = (long) args[1];
                         queryLimit = (int) args[2];
                         return parents;
+                    case "findRecentParents":
+                        events.add("recent-query");
+                        recentCursorCreatedAt = (LocalDateTime) args[0];
+                        recentCursorId = (Long) args[1];
+                        queryLimit = (int) args[2];
+                        return recent;
                     case "findRepliesByParentIds":
                         events.add("replies-query");
                         queriedParentIds = (List<Long>) args[0];
@@ -116,6 +125,16 @@ class CommentFixture {
         vo.setParentCommentId(parent);
         vo.setImageKey(key);
         vo.setContent("기존 댓글");
+        return vo;
+    }
+
+    static CommentVO recentComment(long id, String key) {
+        CommentVO vo = comment(id, null, key);
+        vo.setNickname("reviewer");
+        vo.setPlacePublicId("place-public-id");
+        vo.setPlaceName("place name");
+        vo.setPlaceBranchName("branch name");
+        vo.setCreatedAt(LocalDateTime.of(2026, 9, 21, 12, 0));
         return vo;
     }
 

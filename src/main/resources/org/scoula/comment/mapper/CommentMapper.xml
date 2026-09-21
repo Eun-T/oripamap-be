@@ -19,6 +19,27 @@
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
+    <!-- 전체 장소의 최상위 댓글을 후기 피드용으로 최신순 조회한다. -->
+    <select id="findRecentParents" resultType="org.scoula.comment.vo.CommentVO">
+        SELECT c.id, c.user_id AS userId, c.content,
+               c.image_key AS imageKey, c.created_at AS createdAt,
+               u.nickname,
+               p.public_id AS placePublicId, p.name AS placeName,
+               p.branch_name AS placeBranchName
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        JOIN places p ON c.place_id = p.id
+        WHERE c.parent_comment_id IS NULL
+        <if test="cursorCreatedAt != null and cursorId != null">
+            AND (
+                c.created_at &lt; #{cursorCreatedAt}
+                OR (c.created_at = #{cursorCreatedAt} AND c.id &lt; #{cursorId})
+            )
+        </if>
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT #{limit}
+    </select>
+
     <!-- 현재 페이지의 부모들에 달린 대댓글을 한 번에 조회한다. -->
     <select id="findRepliesByParentIds" resultType="org.scoula.comment.vo.CommentVO">
         SELECT c.id, c.place_id AS placeId, c.user_id AS userId,

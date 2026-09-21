@@ -1,7 +1,11 @@
 package org.scoula.exception;
 
 import org.scoula.member.exception.EmailAlreadyExistsException;
+import org.scoula.member.exception.InvalidPasswordException;
 import org.scoula.member.exception.NicknameAlreadyExistsException;
+import org.scoula.emailverification.exception.EmailDeliveryException;
+import org.scoula.emailverification.exception.EmailVerificationRateLimitException;
+import org.scoula.emailverification.exception.EmailVerificationRequiredException;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -20,6 +24,35 @@ import lombok.extern.log4j.Log4j2;
 @Order(2)
 @Log4j2
 public class ApiExceptionAdvice {
+
+    @ExceptionHandler(InvalidPasswordException.class)
+    protected ResponseEntity<String> handleInvalidPassword(InvalidPasswordException e) {
+        return ResponseEntity.badRequest()
+                .header("Content-Type", "text/plain;charset=UTF-8")
+                .body(e.getMessage());
+    }
+
+    @ExceptionHandler(EmailVerificationRateLimitException.class)
+    protected ResponseEntity<ApiErrorResponse> handleEmailVerificationRateLimit(
+            EmailVerificationRateLimitException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(e.getRetryAfterSeconds()))
+                .body(new ApiErrorResponse("EMAIL_VERIFICATION_RATE_LIMITED", e.getMessage()));
+    }
+
+    @ExceptionHandler(EmailVerificationRequiredException.class)
+    protected ResponseEntity<ApiErrorResponse> handleEmailVerificationRequired(
+            EmailVerificationRequiredException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiErrorResponse("EMAIL_VERIFICATION_REQUIRED", e.getMessage()));
+    }
+
+    @ExceptionHandler(EmailDeliveryException.class)
+    protected ResponseEntity<ApiErrorResponse> handleEmailDelivery(EmailDeliveryException e) {
+        log.error("Verification email delivery failed");
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ApiErrorResponse("EMAIL_DELIVERY_FAILED", e.getMessage()));
+    }
 
     @ExceptionHandler(EmailAlreadyExistsException.class)
     protected ResponseEntity<String> handleEmailAlreadyExists(EmailAlreadyExistsException e) {

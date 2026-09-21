@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.scoula.member.dto.ChangePasswordDTO;
 import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.exception.EmailAlreadyExistsException;
+import org.scoula.member.exception.InvalidPasswordException;
 import org.scoula.member.exception.NicknameAlreadyExistsException;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.security.account.domain.MemberVO;
@@ -16,9 +17,38 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class MemberServiceImplTest {
 
     @Test
+    void rejectsSevenCharacterPasswordBeforeEmailVerification() {
+        MemberService service = new MemberServiceImpl(
+                new BCryptPasswordEncoder(), new DuplicateEmailMemberMapper(), null,
+                new VerifiedEmailVerificationMapper());
+        MemberJoinDTO request = MemberJoinDTO.builder()
+                .email("member@example.com")
+                .password("1234567")
+                .nickname("member")
+                .build();
+
+        assertThrows(InvalidPasswordException.class, () -> service.join(request));
+    }
+
+    @Test
+    void rejectsNonAsciiPasswordBeforeEmailVerification() {
+        MemberService service = new MemberServiceImpl(
+                new BCryptPasswordEncoder(), new DuplicateEmailMemberMapper(), null,
+                new VerifiedEmailVerificationMapper());
+        MemberJoinDTO request = MemberJoinDTO.builder()
+                .email("member@example.com")
+                .password("password한글")
+                .nickname("member")
+                .build();
+
+        assertThrows(InvalidPasswordException.class, () -> service.join(request));
+    }
+
+    @Test
     void translatesConcurrentDuplicateEmailDuringJoin() {
         MemberMapper mapper = new DuplicateEmailMemberMapper();
-        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null);
+        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null,
+                new VerifiedEmailVerificationMapper());
         MemberJoinDTO request = MemberJoinDTO.builder()
                 .email("member@example.com")
                 .password("password")
@@ -31,20 +61,8 @@ class MemberServiceImplTest {
     @Test
     void translatesConcurrentDuplicateNicknameDuringJoin() {
         ConcurrentNicknameMemberMapper mapper = new ConcurrentNicknameMemberMapper();
-        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null);
-        MemberJoinDTO request = MemberJoinDTO.builder()
-                .email("member@example.com")
-                .password("password")
-                .nickname("닉네임")
-                .build();
-
-        assertThrows(NicknameAlreadyExistsException.class, () -> service.join(request));
-    }
-
-    @Test
-    void translatesConcurrentDuplicateNicknameDuringJoin() {
-        ConcurrentNicknameMemberMapper mapper = new ConcurrentNicknameMemberMapper();
-        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null);
+        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null,
+                new VerifiedEmailVerificationMapper());
         MemberJoinDTO request = MemberJoinDTO.builder()
                 .email("member@example.com")
                 .password("password")
@@ -58,7 +76,8 @@ class MemberServiceImplTest {
     void rejectsNicknameUsedByAnotherUserBeforeUpdate() {
         NicknameMemberMapper mapper = new NicknameMemberMapper();
         mapper.nicknameExistsForOtherUser = true;
-        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null);
+        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null,
+                new VerifiedEmailVerificationMapper());
 
         assertThrows(NicknameAlreadyExistsException.class,
                 () -> service.updateNickname(1L, "중복닉네임"));
@@ -68,7 +87,8 @@ class MemberServiceImplTest {
     @Test
     void allowsCurrentUsersOwnNickname() {
         NicknameMemberMapper mapper = new NicknameMemberMapper();
-        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null);
+        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null,
+                new VerifiedEmailVerificationMapper());
 
         service.updateNickname(1L, "내닉네임");
 
@@ -79,7 +99,8 @@ class MemberServiceImplTest {
     void translatesUniqueConstraintViolationDuringNicknameUpdate() {
         NicknameMemberMapper mapper = new NicknameMemberMapper();
         mapper.updateException = new DuplicateKeyException("uk_users_nickname");
-        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null);
+        MemberService service = new MemberServiceImpl(new BCryptPasswordEncoder(), mapper, null,
+                new VerifiedEmailVerificationMapper());
 
         assertThrows(NicknameAlreadyExistsException.class,
                 () -> service.updateNickname(1L, "경합닉네임"));
@@ -154,25 +175,6 @@ class MemberServiceImplTest {
             }
             updateCount++;
             return 1;
-        }
-    }
-
-    private static class ConcurrentNicknameMemberMapper extends DuplicateEmailMemberMapper {
-        private int nicknameChecks;
-
-        @Override
-        public boolean existsByEmail(String email) {
-            return false;
-        }
-
-        @Override
-        public boolean existsByNickname(String nickname) {
-            return nicknameChecks++ > 0;
-        }
-
-        @Override
-        public int insert(MemberVO member) {
-            throw new DuplicateKeyException("uk_users_nickname");
         }
     }
 

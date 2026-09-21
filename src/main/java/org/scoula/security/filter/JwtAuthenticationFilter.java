@@ -33,6 +33,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return "/api/auth/login".equals(path)
                 || "/api/auth/refresh".equals(path)
                 || "/api/auth/logout".equals(path)
+                || "/api/auth/email-verifications".equals(path)
+                || "/api/auth/email-verifications/verify".equals(path)
                 || path.startsWith("/api/auth/kakao/")
                 || "/api/auth/kakao".equals(path)
                 || path.startsWith("/api/auth/naver/")

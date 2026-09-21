@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.scoula.comment.dto.CommentPageResponse;
 import org.scoula.comment.dto.CommentRequest;
 import org.scoula.comment.dto.CommentResponse;
+import org.scoula.comment.dto.RecentCommentPageResponse;
 import org.scoula.comment.service.CommentService;
 import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,14 @@ import java.util.List;
 public class CommentController {
 
     private final CommentService commentService;
+
+    @GetMapping("/recent")
+    public RecentCommentPageResponse getRecentComments(
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return commentService.getRecentComments(cursor, size);
+    }
 
     // 댓글 목록
     @GetMapping("/place/{placeId}")

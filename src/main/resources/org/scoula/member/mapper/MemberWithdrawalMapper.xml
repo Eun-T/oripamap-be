@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.member.mapper.MemberWithdrawalMapper">
+
+    <select id="findUserIdForUpdate" resultType="long">
+        SELECT id
+        FROM users
+        WHERE id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <select id="findCommentImageKeysByUserId" resultType="string">
+        SELECT image_key
+        FROM comments
+        WHERE user_id = #{userId}
+          AND image_key IS NOT NULL
+    </select>
+
+    <!-- Preserve replies written by other users when their parent belongs to the withdrawing user. -->
+    <update id="detachOtherUsersReplies">
+        UPDATE comments child
+        JOIN comments parent ON parent.id = child.parent_comment_id
+        SET child.parent_comment_id = NULL
+        WHERE parent.user_id = #{userId}
+          AND child.user_id != #{userId}
+    </update>
+
+    <delete id="deleteCommentsByUserId">
+        DELETE FROM comments WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="deleteFavoritesByUserId">
+        DELETE FROM favorites WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="deleteInquiriesByUserId">
+        DELETE FROM inquiries WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="deleteEditRequestsByUserId">
+        DELETE FROM edit_requests WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="deleteRefreshTokensByUserId">
+        DELETE FROM refresh_tokens WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="deleteUser">
+        DELETE FROM users WHERE id = #{userId}
+    </delete>
+
+</mapper>

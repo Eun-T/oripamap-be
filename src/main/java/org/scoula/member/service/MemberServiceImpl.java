@@ -7,10 +7,16 @@ import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
 import org.scoula.member.exception.EmailAlreadyExistsException;
+import org.scoula.member.exception.InvalidPasswordException;
 import org.scoula.member.exception.NicknameAlreadyExistsException;
 import org.scoula.member.exception.PasswordMissmatchException;
 import org.scoula.member.mapper.MemberMapper;
 import org.scoula.member.util.NicknamePolicy;
+import org.scoula.member.util.PasswordPolicy;
+import org.scoula.emailverification.domain.EmailVerification;
+import org.scoula.emailverification.exception.EmailVerificationRequiredException;
+import org.scoula.emailverification.mapper.EmailVerificationMapper;
+import org.scoula.emailverification.util.EmailAddressUtil;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.refresh.service.RefreshTokenService;
 import org.springframework.dao.DuplicateKeyException;
@@ -19,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 @Log4j2
 @Service
@@ -28,6 +35,7 @@ public class MemberServiceImpl  implements MemberService {
     final PasswordEncoder passwordEncoder;
     final MemberMapper mapper;
     final RefreshTokenService refreshTokenService;
+    final EmailVerificationMapper emailVerificationMapper;
 
     @Override
     public boolean existsByEmail(String email) {
@@ -44,6 +52,16 @@ public class MemberServiceImpl  implements MemberService {
     @Transactional
     @Override
     public MemberDTO join(MemberJoinDTO dto) {
+        if (!PasswordPolicy.isValid(dto.getPassword())) {
+            throw new InvalidPasswordException();
+        }
+        dto.setEmail(EmailAddressUtil.normalize(dto.getEmail()));
+        EmailVerification verification = emailVerificationMapper.findByEmailForUpdate(dto.getEmail());
+        if (verification == null
+                || verification.getVerifiedAt() == null
+                || !verification.getExpiresAt().isAfter(LocalDateTime.now())) {
+            throw new EmailVerificationRequiredException();
+        }
         MemberVO member = dto.toVO();
         if (!NicknamePolicy.isValid(member.getNickname())) {
             throw new IllegalArgumentException("닉네임은 공백 없이 1자 이상 7자 이하여야 합니다.");
@@ -63,6 +81,7 @@ public class MemberServiceImpl  implements MemberService {
             }
             throw e;
         }
+        emailVerificationMapper.deleteById(verification.getId());
         return get(member.getEmail());
     }
 

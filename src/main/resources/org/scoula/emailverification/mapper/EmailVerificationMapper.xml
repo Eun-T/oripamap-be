@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.scoula.emailverification.mapper.EmailVerificationMapper">
+    <insert id="insertIfAbsent">
+        INSERT IGNORE INTO email_verifications
+            (email, code_hash, expires_at, attempt_count, last_sent_at)
+        VALUES
+            (#{email}, #{codeHash}, #{expiresAt}, 0, #{lastSentAt})
+    </insert>
+
+    <select id="findByEmailForUpdate"
+            resultType="org.scoula.emailverification.domain.EmailVerification">
+        SELECT id, email, code_hash, expires_at, verified_at, attempt_count,
+               last_sent_at, created_at, updated_at
+        FROM email_verifications
+        WHERE email = #{email}
+        FOR UPDATE
+    </select>
+
+    <update id="replaceCode">
+        UPDATE email_verifications
+        SET code_hash = #{codeHash},
+            expires_at = #{expiresAt},
+            verified_at = NULL,
+            attempt_count = 0,
+            last_sent_at = #{lastSentAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementAttemptCount">
+        UPDATE email_verifications
+        SET attempt_count = attempt_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <update id="markVerified">
+        UPDATE email_verifications
+        SET verified_at = #{verifiedAt}
+        WHERE id = #{id}
+          AND verified_at IS NULL
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM email_verifications
+        WHERE id = #{id}
+    </delete>
+</mapper>

@@ -17,6 +17,7 @@ import org.springframework.web.servlet.view.JstlView;
         "org.scoula.place.controller",
         "org.scoula.favorite.controller",
         "org.scoula.member.controller",
+        "org.scoula.emailverification.controller",
         "org.scoula.comment.controller",
         "org.scoula.editrequest.controller",
         "org.scoula.inquiry.controller",

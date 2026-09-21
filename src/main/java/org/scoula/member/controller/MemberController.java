@@ -7,8 +7,10 @@ import org.scoula.member.dto.MemberDTO;
 import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
 import org.scoula.member.exception.EmailAlreadyExistsException;
+import org.scoula.member.exception.InvalidPasswordException;
 import org.scoula.member.service.MemberService;
 import org.scoula.member.util.NicknamePolicy;
+import org.scoula.member.util.PasswordPolicy;
 import org.scoula.security.account.domain.CustomUser;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
@@ -39,9 +41,11 @@ public class MemberController {
                 ? member.getUsername()
                 : member.getNickname();
         if (member.getEmail() == null || member.getEmail().isBlank()
-                || member.getPassword() == null || member.getPassword().isBlank()
                 || !NicknamePolicy.isValid(nickname)) {
             return ResponseEntity.badRequest().build();
+        }
+        if (!PasswordPolicy.isValid(member.getPassword())) {
+            throw new InvalidPasswordException();
         }
         if (service.existsByEmail(member.getEmail())) {
             throw new EmailAlreadyExistsException();

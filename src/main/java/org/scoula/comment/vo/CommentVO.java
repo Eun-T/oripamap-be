@@ -15,6 +15,9 @@ public class CommentVO {
     private String imageKey;
 
     private String nickname;
+    private String placePublicId;
+    private String placeName;
+    private String placeBranchName;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

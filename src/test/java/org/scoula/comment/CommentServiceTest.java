@@ -174,4 +174,43 @@ class CommentServiceTest {
         f.photos = List.of(CommentFixture.comment(1L, null, CommentFixture.KEY));
         assertNotNull(f.service.getPhotos(1L).get(0).getImageUrl());
     }
+
+    @Test void recentFeedReturnsCardFieldsAndUsesExtraRowForHasNext() {
+        f.recent = List.of(
+                CommentFixture.recentComment(3L, CommentFixture.KEY),
+                CommentFixture.recentComment(2L, null),
+                CommentFixture.recentComment(1L, null));
+
+        var result = f.service.getRecentComments(null, 2);
+
+        assertEquals(2, result.getComments().size());
+        assertTrue(result.isHasNext());
+        assertNotNull(result.getNextCursor());
+        assertNull(f.recentCursorCreatedAt);
+        assertNull(f.recentCursorId);
+        assertEquals(3, f.queryLimit);
+        assertEquals("reviewer", result.getComments().get(0).getNickname());
+        assertEquals("place-public-id", result.getComments().get(0).getPlacePublicId());
+        assertEquals("place name", result.getComments().get(0).getPlaceName());
+        assertEquals("branch name", result.getComments().get(0).getPlaceBranchName());
+        assertNotNull(result.getComments().get(0).getImageUrl());
+        assertNull(result.getComments().get(1).getImageUrl());
+        assertEquals(List.of("recent-query", "sign"), f.events);
+
+        f.events.clear();
+        f.recent = List.of(CommentFixture.recentComment(1L, null));
+        var nextResult = f.service.getRecentComments(result.getNextCursor(), 2);
+
+        assertEquals(CommentFixture.recentComment(2L, null).getCreatedAt(), f.recentCursorCreatedAt);
+        assertEquals(2L, f.recentCursorId);
+        assertFalse(nextResult.isHasNext());
+        assertNull(nextResult.getNextCursor());
+    }
+
+    @Test void recentFeedRejectsInvalidPaginationBeforeQuery() {
+        assertThrows(ResponseStatusException.class, () -> f.service.getRecentComments(null, 0));
+        assertThrows(ResponseStatusException.class, () -> f.service.getRecentComments(null, 101));
+        assertThrows(ResponseStatusException.class, () -> f.service.getRecentComments("invalid", 20));
+        assertTrue(f.events.isEmpty());
+    }
 }

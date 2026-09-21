@@ -152,6 +152,27 @@ class CommentControllerTest {
         assertTrue(f.events.contains("s3-delete"));
     }
 
+    @Test void recentFeedDefaultsToTwentyAndReturnsPlaceFields() throws Exception {
+        f.recent = List.of(CommentFixture.recentComment(1L, CommentFixture.KEY));
+
+        var response = mvc.perform(get("/api/comments/recent"))
+                .andReturn().getResponse();
+
+        assertEquals(200, response.getStatus());
+        String body = response.getContentAsString();
+        assertTrue(body.contains("\"nextCursor\":null"));
+        assertTrue(body.contains("\"hasNext\":false"));
+        assertTrue(body.contains("\"placePublicId\":\"place-public-id\""));
+        assertTrue(body.contains("\"placeName\":\"place name\""));
+        assertTrue(body.contains("\"placeBranchName\":\"branch name\""));
+        assertTrue(body.contains("\"createdAt\":\"2026-09-21T12:00:00\""));
+        assertTrue(body.contains("\"imageUrl\":\"https://"));
+        assertFalse(body.contains("imageKey"));
+        assertNull(f.recentCursorCreatedAt);
+        assertNull(f.recentCursorId);
+        assertEquals(21, f.queryLimit);
+    }
+
     private MockMultipartFile file(String field) {
         return new MockMultipartFile(field, "test.png", "image/png", new byte[]{1});
     }

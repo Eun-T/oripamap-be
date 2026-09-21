@@ -153,7 +153,9 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .csrfTokenRepository(csrfTokenRepository)
                 .ignoringAntMatchers(
                         "/api/auth/login",
-                        "/api/member")
+                        "/api/member",
+                        "/api/auth/email-verifications",
+                        "/api/auth/email-verifications/verify")
                 .ignoringRequestMatchers(new AppAuthCsrfRequestMatcher())
                 .and()
                 .formLogin().disable()
@@ -164,6 +166,16 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .hasRole("ADMIN")
                 .antMatchers("/api/inquiries/**")
                 .authenticated();
+
+        http.authorizeRequests()
+                .antMatchers(HttpMethod.GET, "/api/comments/recent")
+                .permitAll()
+                .antMatchers("/api/users/me")
+                .authenticated()
+                .antMatchers(HttpMethod.POST,
+                        "/api/auth/email-verifications",
+                        "/api/auth/email-verifications/verify")
+                .permitAll();
 
     }
 

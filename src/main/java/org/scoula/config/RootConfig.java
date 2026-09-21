@@ -22,6 +22,7 @@ import javax.sql.DataSource;
 @Import(S3Config.class)
 @MapperScan(basePackages  = {
         "org.scoula.member.mapper",
+        "org.scoula.emailverification.mapper",
         "org.scoula.place.mapper",
         "org.scoula.favorite.mapper",
         "org.scoula.comment.mapper",
@@ -31,6 +32,7 @@ import javax.sql.DataSource;
 @ComponentScan(basePackages = {
         "org.scoula.common.service",
         "org.scoula.member.service",
+        "org.scoula.emailverification.service",
         "org.scoula.place.service",
         "org.scoula.favorite.service",
         "org.scoula.comment.service",

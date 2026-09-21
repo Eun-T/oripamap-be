@@ -7,10 +7,15 @@ import org.scoula.member.dto.MemberJoinDTO;
 import org.scoula.member.dto.MemberUpdateDTO;
 import org.scoula.member.dto.NicknameUpdateDTO;
 import org.scoula.member.service.MemberService;
+import org.scoula.member.service.MemberWithdrawalService;
 import org.scoula.security.account.domain.CustomUser;
 import org.scoula.security.account.domain.MemberVO;
 import org.scoula.security.account.dto.UserInfoDTO;
 import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.scoula.security.util.JwtCookieUtil;
+import org.scoula.security.util.RefreshTokenCookieUtil;
 
 import java.util.Collections;
 
@@ -21,9 +26,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UserControllerTest {
 
     @Test
+    void withdrawsAuthenticatedUserAndExpiresAuthenticationCookies() {
+        TrackingMemberService memberService = new TrackingMemberService();
+        TrackingWithdrawalService withdrawalService = new TrackingWithdrawalService();
+        UserController controller = new UserController(
+                memberService, withdrawalService,
+                new JwtCookieUtil(false), new RefreshTokenCookieUtil(false));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        var result = controller.withdraw(authenticatedUser(), request, response);
+
+        assertEquals(HttpStatus.NO_CONTENT, result.getStatusCode());
+        assertEquals(7L, withdrawalService.userId);
+        String cookies = String.join("\n", response.getHeaders("Set-Cookie"));
+        assertTrue(cookies.contains("accessToken=;"));
+        assertTrue(cookies.contains("refreshToken=;"));
+        assertTrue(cookies.contains("Max-Age=0"));
+    }
+
+    @Test
     void updatesOnlyAuthenticatedUsersNicknameAndReturnsChangedUserInfo() {
         TrackingMemberService service = new TrackingMemberService();
-        UserController controller = new UserController(service);
+        UserController controller = controller(service);
         CustomUser user = authenticatedUser();
 
         UserInfoDTO body = controller.updateNickname(
@@ -40,7 +65,7 @@ class UserControllerTest {
     @Test
     void rejectsBlankNicknameWithoutUpdating() {
         TrackingMemberService service = new TrackingMemberService();
-        UserController controller = new UserController(service);
+        UserController controller = controller(service);
 
         var response = controller.updateNickname(new NicknameUpdateDTO("   "), authenticatedUser());
 
@@ -51,7 +76,7 @@ class UserControllerTest {
     @Test
     void rejectsNicknameLongerThanSevenCharactersWithoutUpdating() {
         TrackingMemberService service = new TrackingMemberService();
-        UserController controller = new UserController(service);
+        UserController controller = controller(service);
 
         var response = controller.updateNickname(
                 new NicknameUpdateDTO("여덟글자닉네임임"), authenticatedUser());
@@ -63,7 +88,7 @@ class UserControllerTest {
     @Test
     void rejectsNicknameContainingWhitespaceWithoutUpdating() {
         TrackingMemberService service = new TrackingMemberService();
-        UserController controller = new UserController(service);
+        UserController controller = controller(service);
 
         var response = controller.updateNickname(
                 new NicknameUpdateDTO("공백 닉네임"), authenticatedUser());
@@ -82,6 +107,10 @@ class UserControllerTest {
                 .provider("NAVER")
                 .authList(Collections.emptyList())
                 .build());
+    }
+
+    private UserController controller(MemberService memberService) {
+        return new UserController(memberService, null, null, null);
     }
 
     private static class TrackingMemberService implements MemberService {
@@ -119,6 +148,19 @@ class UserControllerTest {
         @Override
         public void changePassword(String authenticatedUsername, ChangePasswordDTO changePassword) {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class TrackingWithdrawalService extends MemberWithdrawalService {
+        private Long userId;
+
+        private TrackingWithdrawalService() {
+            super(null, null);
+        }
+
+        @Override
+        public void withdraw(Long userId) {
+            this.userId = userId;
         }
     }
 }

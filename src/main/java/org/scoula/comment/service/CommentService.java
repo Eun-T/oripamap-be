@@ -5,6 +5,8 @@ import lombok.extern.log4j.Log4j2;
 import org.scoula.common.service.S3ImageService;
 import org.scoula.comment.dto.CommentPageResponse;
 import org.scoula.comment.dto.CommentResponse;
+import org.scoula.comment.dto.RecentCommentPageResponse;
+import org.scoula.comment.dto.RecentCommentResponse;
 import org.scoula.comment.mapper.CommentMapper;
 import org.scoula.comment.vo.CommentVO;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Collections;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.Base64;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -68,6 +74,71 @@ public class CommentService {
                 .hasNext(hasNext)
                 .totalCount(totalCount)
                 .build();
+    }
+
+    public RecentCommentPageResponse getRecentComments(String cursor, int size) {
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "size must be between 1 and 100.");
+        }
+
+        RecentCursor decodedCursor = decodeCursor(cursor);
+        List<CommentVO> fetchedComments = commentMapper.findRecentParents(
+                decodedCursor == null ? null : decodedCursor.createdAt(),
+                decodedCursor == null ? null : decodedCursor.id(),
+                size + 1);
+        boolean hasNext = fetchedComments.size() > size;
+        List<CommentVO> visibleComments = fetchedComments.stream().limit(size).toList();
+        List<RecentCommentResponse> comments = visibleComments.stream()
+                .map(this::toRecentResponse)
+                .toList();
+        String nextCursor = hasNext
+                ? encodeCursor(visibleComments.get(visibleComments.size() - 1))
+                : null;
+
+        return RecentCommentPageResponse.builder()
+                .comments(comments)
+                .nextCursor(nextCursor)
+                .hasNext(hasNext)
+                .build();
+    }
+
+    private String encodeCursor(CommentVO comment) {
+        String value = comment.getCreatedAt() + "|" + comment.getId();
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private RecentCursor decodeCursor(String cursor) {
+        if (cursor == null || cursor.isBlank()) {
+            return null;
+        }
+        if (cursor.length() > 256) {
+            throw invalidCursor();
+        }
+
+        try {
+            String value = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+            int separator = value.lastIndexOf('|');
+            if (separator <= 0 || separator == value.length() - 1) {
+                throw new IllegalArgumentException();
+            }
+            LocalDateTime createdAt = LocalDateTime.parse(value.substring(0, separator));
+            long id = Long.parseLong(value.substring(separator + 1));
+            if (id < 1) {
+                throw new IllegalArgumentException();
+            }
+            return new RecentCursor(createdAt, id);
+        } catch (IllegalArgumentException | DateTimeParseException e) {
+            throw invalidCursor();
+        }
+    }
+
+    private ResponseStatusException invalidCursor() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid cursor.");
+    }
+
+    private record RecentCursor(LocalDateTime createdAt, long id) {
     }
 
     public CommentResponse addComment(Long placeId, Long userId, String content) {
@@ -218,6 +289,22 @@ public class CommentService {
                 .createdAt(vo.getCreatedAt())
                 .updatedAt(vo.getUpdatedAt())
                 .replies(replies)
+                .build();
+    }
+
+    private RecentCommentResponse toRecentResponse(CommentVO vo) {
+        return RecentCommentResponse.builder()
+                .id(vo.getId())
+                .content(vo.getContent())
+                .createdAt(vo.getCreatedAt())
+                .userId(vo.getUserId())
+                .nickname(vo.getNickname())
+                .placePublicId(vo.getPlacePublicId())
+                .placeName(vo.getPlaceName())
+                .placeBranchName(vo.getPlaceBranchName())
+                .imageUrl(vo.getImageKey() == null
+                        ? null
+                        : s3ImageService.createPresignedGetUrl(vo.getImageKey()))
                 .build();
     }
 }
