@@ -159,6 +159,12 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .formLogin().disable()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
+        http.authorizeRequests()
+                .antMatchers("/api/admin/inquiries/**")
+                .hasRole("ADMIN")
+                .antMatchers("/api/inquiries/**")
+                .authenticated();
+
     }
 
     @Override
